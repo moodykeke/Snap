@@ -20,3 +20,10 @@
 ## 提交与分支
 - 需求分支：`feature/<name>`，缺陷分支：`fix/<name>`。
 - 提交信息采用约定式：`feat(i18n): ...`、`fix(devserver): ...`；每次应用翻译需附预览验证。
+
+## 启动与弹窗显示时机（重要）
+- 语言脚本异步加载：`setLanguage()` 动态插入 `locale/lang-<code>.js`，在脚本 `onload` 后 `reflectLanguage()` 才设置 `SnapTranslator.language`。
+- 开发版警示延后显示：
+  - 在 `warnAboutDev()` 中加入字典就绪与目标语言判断（来自 `#lang` 锚点或用户偏好）。
+  - 当当前为英文或字典未就绪时，设置 `devWarningPending = true` 推迟显示；在 `reflectLanguage()` 完成后再显示。
+- 弹窗本地化：`DialogBoxMorph.prototype.inform` 对标题与正文都调用 `localize(...)`；长文本必须与语言文件键的换行与空格完全一致。
