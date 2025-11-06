@@ -33,7 +33,19 @@ function main() {
   if (!fs.existsSync(langPath)) { console.error('Locale file not found:', langPath); process.exit(1); }
 
   const scan = JSON.parse(read(scanPath));
-  const keys = Object.keys(scan.missing || {});
+  const rawKeys = Object.keys(scan.missing || {});
+  const keys = rawKeys.filter(k => {
+    const s = String(k);
+    const len = s.length;
+    const hasNL = /\n/.test(s);
+    const looksHint = /^uncheck|^check/.test(s);
+    // reject obvious code fragments or very long strings
+    if (len > 180) return false;
+    if (/function|=>|var\s|new\s|\bthis\.|\bBlockMorph|\bDialogBoxMorph|\bXMLHttpRequest|\bserializer|\bpaletteXML/.test(s)) return false;
+    if (/https?:\/\//.test(s)) return false; // skip URLs in messages
+    if (hasNL && !looksHint) return false; // only allow newline in short hints
+    return true;
+  });
   const lines = keys.map(k => `    "${escapeVal(k)}": "${fillEnglish ? escapeVal(k) : ''}",`);
   const block = [
     `\n// applied from ${path.relative(root, scanPath)} on ${new Date().toISOString()}`,
@@ -47,7 +59,7 @@ function main() {
   const backupPath = path.join(backupDir, `lang-${lang}.js.pre-scan-${Date.now()}.bak`);
   fs.copyFileSync(langPath, backupPath);
   fs.appendFileSync(langPath, block, 'utf8');
-  console.log(`Applied ${keys.length} stubs to ${langPath}`);
+  console.log(`Applied ${keys.length} filtered stubs (from ${rawKeys.length}) to ${langPath}`);
   console.log('Backup saved at', backupPath);
 }
 
