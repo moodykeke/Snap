@@ -7928,8 +7928,9 @@ IDE_Morph.prototype.reflectLanguage = function (lang, callback, noSave) {
     var projectData,
         urlBar = location.hash;
     SnapTranslator.language = lang;
-    // ensure dev warning after language set
-    if (!this.devWarned) {
+    // ensure dev warning after language set if it was postponed
+    if (!this.devWarned && this.devWarningPending) {
+        this.devWarningPending = false;
         this.warnAboutDev();
     }
     if (!this.loadNewProject) {
