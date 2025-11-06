@@ -1581,3 +1581,18 @@ SnapTranslator.dict.zh_CN = { ...SnapTranslator.dict.zh_CN,
     "download to disk text": "",
     "unable to export text": "",
 };
+
+// applied from utilities/i18n/candidates.zh_CN.json on 2025-11-06T00:36:52.636Z
+SnapTranslator.dict.zh_CN = { ...SnapTranslator.dict.zh_CN,
+    "Afterglow blocks...": "积木高亮余辉...",
+    "Afterglow blocks": "积木高亮余辉",
+    "off (0x)": "关闭 (0x)",
+    "short (1x)": "短 (1x)",
+    "normal (5x)": "正常 (5x)",
+    "long (10x)": "长 (10x)",
+    "maximum (20x)": "最大 (20x)",
+    "Template": "模板",
+    "Tutorial": "教程",
+    "Restore palette": "恢复调色板",
+    "restore palette": "恢复调色板",
+};
