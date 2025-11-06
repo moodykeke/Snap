@@ -1,0 +1,451 @@
+{
+  "lang": "zh_CN",
+  "missingCount": 139,
+  "missing": {
+    "script pic": [
+      "src\\blocks.js",
+      "src\\blocks.js",
+      "src\\blocks.js",
+      "src\\blocks.js",
+      "src\\byob.js"
+    ],
+    "check to inherit\\nfrom": [
+      "src\\blocks.js",
+      "src\\blocks.js",
+      "src\\blocks.js",
+      "src\\byob.js"
+    ],
+    "comment pic": [
+      "src\\blocks.js"
+    ],
+    "copy": [
+      "src\\blocks.js",
+      "src\\objects.js",
+      "src\\objects.js",
+      "src\\objects.js"
+    ],
+    "code...": [
+      "src\\blocks.js"
+    ],
+    "Lisp code...": [
+      "src\\blocks.js"
+    ],
+    "JavaScript extensions for Snap!\\nare turned off": [
+      "src\\blocks.js"
+    ],
+    "cannot find extension menu \"": [
+      "src\\blocks.js"
+    ],
+    " ": [
+      "src\\blocks.js",
+      "src\\widgets.js"
+    ],
+    "code number mapping...": [
+      "src\\blocks.js"
+    ],
+    "code true mapping...": [
+      "src\\blocks.js"
+    ],
+    "code false mapping...": [
+      "src\\blocks.js"
+    ],
+    "Help',\r\n            null,\r\n            myself.world(),\r\n            help\r\n        );\r\n    };\r\n\r\n    if (this.isCustomBlock) {\r\n        def = this.isGlobal ? this.definition\r\n                : this.scriptTarget().getMethod(this.blockSpec);\r\n        comment = def.comment;\r\n        if (comment) {\r\n            block = def.blockInstance();\r\n            block.refreshDefaults(def);\r\n            comment = comment.fullCopy();\r\n            comment.contents.parse();\r\n            help = '';\r\n            comment.contents.lines.forEach(line =>\r\n                help = help + '\\n' + line\r\n            );\r\n            new DialogBoxMorph().inform(\r\n                'Help',\r\n                help.substr(1),\r\n                myself.world(),\r\n                block.doWithAlpha(\r\n                    1,\r\n                    () => {\r\n                        block.addShadow();\r\n                        return block.fullImage();\r\n                    }\r\n                )\r\n            );\r\n            return;\r\n        }\r\n    }\r\n    pic.src = ide.resourceURL('help', spec + '.png');\r\n};\r\n\r\n// BlockMorph exporting picture with result bubble\r\n\r\nBlockMorph.prototype.exportResultPic = function () {\r\n    var top = this.topBlock(),\r\n        receiver = top.scriptTarget(),\r\n        stage;\r\n    if (top !== this) {return; }\r\n    if (receiver) {\r\n        stage = receiver.parentThatIsA(StageMorph);\r\n        if (stage) {\r\n            stage.threads.stopProcess(top);\r\n            stage.threads.startProcess(top, receiver, false, true);\r\n        }\r\n    }\r\n};\r\n\r\n// BlockMorph exporting a script\r\n\r\nBlockMorph.prototype.exportScript = function () {\r\n    // assumes this is the script's top block\r\n    var ide = this.parentThatIsA(IDE_Morph),\r\n        blockEditor = this.parentThatIsA(BlockEditorMorph),\r\n        xml;\r\n\r\n    if (!ide && blockEditor) {\r\n        ide = blockEditor.target.parentThatIsA(IDE_Morph);\r\n    }\r\n    if (!ide) {\r\n        return;\r\n    }\r\n\r\n    xml = this.toXMLString();\r\n    if (xml) {\r\n        ide.saveXMLAs(\r\n            xml,\r\n            this.selector + ' script',\r\n            false\r\n        );\r\n    }\r\n};\r\n\r\nBlockMorph.prototype.toXMLString = function (receiver) {\r\n    // answer an xml string representation of this block and all the\r\n    // following ones attached to it, including all dependencies.\r\n    // specifying a receiver sprite is optional for cases where\r\n    // the receiver sprite is not the currently edited one inside the IDE\r\n    var ide = this.parentThatIsA(IDE_Morph) ||\r\n            receiver?.parentThatIsA(IDE_Morph),\r\n        blockEditor = this.parentThatIsA(BlockEditorMorph),\r\n        isReporter = this instanceof ReporterBlockMorph,\r\n        varNames = [],\r\n        dependencies,\r\n        localVarNames,\r\n        globalData,\r\n        localData;\r\n\r\n    if (!ide && blockEditor) {\r\n        ide = blockEditor.target.parentThatIsA(IDE_Morph);\r\n    }\r\n    if (!ide) {\r\n        return;\r\n    }\r\n\r\n    // collect custom block definitions referenced in this script:\r\n    dependencies = this.dependencies(false, receiver); // both global and local\r\n\r\n    // collect variables referenced by included custom block definitions:\r\n    dependencies.forEach(def =>\r\n        def.dataDependencies().forEach(name => {\r\n            if (!varNames.includes(name)) {\r\n                varNames.push(name);\r\n            }\r\n        })\r\n    );\r\n    localData = (receiver || ide.currentSprite).variables.fork(varNames);\r\n    localVarNames = localData.names(true); // include hidden\r\n    varNames = varNames.filter(name => !localVarNames.includes(name));\r\n    globalData = ide.globalVariables.fork(varNames);\r\n\r\n    return '<script app=\"' +\r\n        ide.serializer.app +\r\n        '\" version=\"' +\r\n        ide.serializer.version +\r\n        '\">' +\r\n        (dependencies.length ?\r\n            ide.blocksLibraryXML(\r\n                dependencies,\r\n                null, // more categories\r\n                false, // as file\r\n                globalData,\r\n                localData\r\n            )\r\n            : ''\r\n        ) +\r\n        (isReporter ? '<script>' : '') +\r\n        ide.serializer.serialize(this) +\r\n        (isReporter ? '</script>' : '') +\r\n        '</script>';\r\n};\r\n\r\nBlockMorph.prototype.dependencies = function (onlyGlobal, receiver) {\r\n    // answer an array containing all custom block definitions referenced\r\n    // by this and the following blocks, optional parameter to constrain\r\n    // to global definitions.\r\n    // specifying a receiver sprite is optional for cases where\r\n    // the receiver sprite is not the currently edited one inside the IDE\r\n    // if a receiver is not specified  this method can only be called from\r\n    // within the IDE because it needs to be able to determine the scriptTarget\r\n    var dependencies = [],\r\n        quasiPrims = SpriteMorph.prototype.quasiPrimitives(),\r\n        rcvr = onlyGlobal ? null : (receiver || this.scriptTarget());\r\n    this.forAllChildren(morph => {\r\n        var def;\r\n        if (morph.isCustomBlock) {\r\n            if (!onlyGlobal || (onlyGlobal && morph.isGlobal)) {\r\n                def = morph.isGlobal ? morph.definition\r\n                    : rcvr.getMethod(morph.semanticSpec);\r\n                if (!def.isBootstrapped()) {\r\n                    [def].concat(def.collectDependencies(\r\n                        quasiPrims,\r\n                        [],\r\n                        rcvr\r\n                    )).forEach(\r\n                        fun => {\r\n                            if (!contains(dependencies, fun)) {\r\n                                dependencies.push(fun);\r\n                            }\r\n                        }\r\n                    );\r\n                }\r\n            }\r\n        }\r\n    });\r\n    return dependencies;\r\n};\r\n\r\n// BlockMorph syntax analysis\r\n\r\nBlockMorph.prototype.toLisp = function (indentation = 0) {\r\n    return Process.prototype.toTextSyntax(\r\n        this.components()\r\n    ).encode(0, indentation);\r\n};\r\n\r\nBlockMorph.prototype.components = function (parameterNames = []) {\r\n    if (this instanceof ReporterBlockMorph) {\r\n        return this.syntaxTree(parameterNames);\r\n    }\r\n    var seq = new List(this.blockSequence(true)).map((block, i) =>\r\n        block.syntaxTree(i < 1 ? parameterNames : [])\r\n    );\r\n    return seq.length() === 1 ? seq.at(1) : seq;\r\n};\r\n\r\nBlockMorph.prototype.syntaxTree = function (parameterNames) {\r\n    var expr = this.fullCopy(),\r\n        nb = expr.nextBlock ? expr.nextBlock() : null,\r\n        inputs, parts;\r\n    if (nb) {\r\n        nb.destroy();\r\n    }\r\n    expr.fixBlockColor(null, true);\r\n    inputs = expr.inputs();\r\n    parts = new List([expr.reify()]);\r\n    inputs.forEach(inp => {\r\n        var val;\r\n        if (inp instanceof BlockMorph) {\r\n            if (inp instanceof RingMorph && inp.isEmptySlot()) {\r\n                parts.add();\r\n                return;\r\n            }\r\n            parts.add(inp.components());\r\n            expr.revertToEmptyInput(inp);\r\n        } else if (inp.isEmptySlot()) {\r\n            parts.add();\r\n        } else if (inp instanceof MultiArgMorph) {\r\n            if (!inp.inputs().length) {\r\n                parts.add();\r\n            }\r\n            inp.inputs().forEach((slot, i) => {\r\n                var entry;\r\n                if (slot instanceof BlockMorph) {\r\n                    if (slot instanceof RingMorph && slot.isEmptySlot()) {\r\n                        parts.add();\r\n                        return;\r\n                    }\r\n                    parts.add(slot.components());\r\n                } else if (slot.isEmptySlot()) {\r\n                    parts.add();\r\n                } else {\r\n                    entry = slot.evaluate();\r\n                    parts.add(entry instanceof BlockMorph ?\r\n                        entry.components() : entry);\r\n                }\r\n                inp.revertToEmptyInput(slot);\r\n            });\r\n        } else if (inp instanceof ArgLabelMorph) {\r\n            parts.add(inp.argMorph().components());\r\n            expr.revertToEmptyInput(inp).collapseAll();\r\n        } else {\r\n            val = inp.evaluate();\r\n            if (val instanceof Array) {\r\n                val = '[' + val + ']';\r\n            }\r\n            if (inp instanceof ColorSlotMorph) {\r\n                val = val.toString();\r\n            }\r\n            parts.add(val instanceof BlockMorph ? val.components() : val);\r\n            expr.revertToEmptyInput(inp, true);\r\n        }\r\n    });\r\n    parts.at(1).updateEmptySlots();\r\n    if (expr.selector === 'reportGetVar') {\r\n        parts.add(expr.blockSpec);\r\n        expr.setSpec('\\xa0'); // non-breaking space, appears blank\r\n    }\r\n    parameterNames.forEach(name => parts.add(name));\r\n    return parts;\r\n};\r\n\r\nBlockMorph.prototype.equalTo = function (other) {\r\n    // private - only to be called from a Context\r\n    return this.constructor.name === other.constructor.name &&\r\n        this.selector === other.selector &&\r\n        this.blockSpec === other.blockSpec;\r\n};\r\n\r\nBlockMorph.prototype.copyWithInputs = function (inputs) {\r\n    // private - only to be called from a Context\r\n    var cpy = this.fullCopy(),\r\n        slots = cpy.inputs(),\r\n        dta = inputs.itemsArray().map(inp =>\r\n            inp instanceof Context ?\r\n                (inp.expression instanceof BlockMorph ?\r\n                    inp.expression.fullCopy()\r\n                    : inp.expression\r\n                )\r\n                : inp\r\n        ),\r\n        count = 0,\r\n        dflt;\r\n\r\n    function isOption(data) {\r\n        return isString(data) &&\r\n            data.length > 2 &&\r\n            data[0] === '[' &&\r\n            data[data.length - 1] === ']';\r\n    }\r\n\r\n    if (dta.length === 0) {\r\n        return cpy.reify();\r\n    }\r\n    if (cpy.selector === 'reportGetVar' && (\r\n        (dta.length === 1) || (cpy.blockSpec === '\\xa0' && dta.length > 1))\r\n    ) {\r\n        cpy.setSpec(dta[0]);\r\n        return cpy.reify(dta.slice(1));\r\n    }\r\n\r\n    // restore input slots\r\n    slots.forEach(slt => {\r\n        if (slt instanceof BlockMorph) {\r\n            dflt = cpy.revertToEmptyInput(slt);\r\n            if (dflt instanceof MultiArgMorph) {\r\n                dflt.collapseAll();\r\n            }\r\n        } else if (slt instanceof MultiArgMorph) {\r\n            slt.inputs().forEach(entry => {\r\n                if (entry instanceof BlockMorph) {\r\n                    slt.revertToEmptyInput(entry);\r\n                }\r\n            });\r\n        }\r\n    });\r\n\r\n    // distribute inputs among the slots\r\n    slots = cpy.inputs();\r\n    slots.forEach((slot) => {\r\n        var inp, i, cnt, sub;\r\n        if (slot instanceof MultiArgMorph && dta[count] instanceof List) {\r\n            // let the list's first item control the arity of the polyadic slot\r\n            // fill with the following items in the list\r\n            inp = dta[count];\r\n            if (inp.length() === 0) {\r\n                nop(); // ignore, i.e. leave slot as is\r\n            } else {\r\n                slot.collapseAll();\r\n                for (i = 1; i <= inp.at(1); i += 1) {\r\n                    cnt = inp.at(i + 1);\r\n                    if (cnt instanceof List) {\r\n                        cnt = Process.prototype.assemble(cnt);\r\n                    }\r\n                    if (cnt instanceof Context) {\r\n                        sub = slot.addInput();\r\n                        if (sub.nestedBlock) {\r\n                            sub.nestedBlock(cnt.expression.fullCopy());\r\n                        } else {\r\n                            slot.replaceInput(\r\n                                sub,\r\n                                cnt.expression.fullCopy()\r\n                            );\r\n                        }\r\n                    } else {\r\n                        slot.addInput(cnt);\r\n                    }\r\n                }\r\n            }\r\n            count += 1;\r\n        } else if (slot instanceof MultiArgMorph && slot.inputs().length) {\r\n            // fill the visible slots of the polyadic input as if they were\r\n            // permanent inputs each\r\n            slot.inputs().forEach(entry => {\r\n                inp = dta[count];\r\n                if (inp instanceof BlockMorph) {\r\n                    if (inp instanceof CommandBlockMorph && entry.nestedBlock) {\r\n                        entry.nestedBlock(inp);\r\n                    } else if (inp instanceof ReporterBlockMorph &&\r\n                            (!entry.isStatic || entry instanceof RingMorph)) {\r\n                        slot.replaceInput(entry, inp);\r\n                    }\r\n                } else {\r\n                    if (inp instanceof List && inp.length() === 0) {\r\n                        nop(); // ignore, i.e. leave slot as is\r\n                    } else if (entry instanceof InputSlotMorph ||\r\n                            entry instanceof TemplateSlotMorph ||\r\n                            entry instanceof BooleanSlotMorph) {\r\n                        entry.setContents(inp);\r\n                    }\r\n                }\r\n                count += 1;\r\n            });\r\n        } else {\r\n            // fill the visible slot, treat collapsed variadic slots as single\r\n            // input (to be replaced by a reporter),\r\n            // skip in case the join value is an empty list\r\n            inp = dta[count];\r\n            if (inp === undefined) {return; }\r\n            if (inp instanceof BlockMorph) {\r\n                if (inp instanceof CommandBlockMorph && slot.nestedBlock) {\r\n                    slot.nestedBlock(inp);\r\n                } else if (inp instanceof ReporterBlockMorph &&\r\n                        (!slot.isStatic || slot instanceof RingMorph)) {\r\n                    cpy.replaceInput(slot, inp);\r\n                } else if (inp instanceof ReporterBlockMorph &&\r\n                        slot.nestedBlock) {\r\n                    slot.nestedBlock(inp);\r\n                }\r\n            } else {\r\n                if (inp instanceof List && inp.length() === 0) {\r\n                    nop(); // ignore, i.e. leave slot as is\r\n                } else if (slot instanceof ColorSlotMorph) {\r\n                    slot.setColor(Color.fromString(inp));\r\n                } else if (slot instanceof InputSlotMorph) {\r\n                    slot.setContents(isOption(inp) ? [inp.slice(1, -1)] : inp);\r\n                } else if (slot instanceof TemplateSlotMorph ||\r\n                        slot instanceof BooleanSlotMorph) {\r\n                    slot.setContents(inp);\r\n                }\r\n            }\r\n            count += 1;\r\n        }\r\n    });\r\n\r\n    // create a function to return\r\n    return cpy.reify(dta.slice(count));\r\n};\r\n\r\nBlockMorph.prototype.copyWithNext = function (next, parameterNames) {\r\n    var expr = this.fullCopy(),\r\n        top;\r\n    if (this instanceof ReporterBlockMorph) {\r\n        return expr.reify();\r\n    }\r\n    top = next.fullCopy().topBlock();\r\n    if (top instanceof CommandBlockMorph) {\r\n        expr.bottomBlock().nextBlock(top);\r\n    }\r\n    return expr.reify(parameterNames);\r\n};\r\n\r\nBlockMorph.prototype.reify = function (inputNames, comment) {\r\n    // private - assumes that I've already been deep copied\r\n    var context = new Context();\r\n    context.expression = this;\r\n    context.inputs = inputNames || [];\r\n    context.emptySlots = this.markEmptySlots();\r\n    context.comment = comment || this.comment?.text();\r\n    return context;\r\n};\r\n\r\nBlockMorph.prototype.markEmptySlots = function () {\r\n    // private - mark all empty slots with an identifier\r\n    // and return the count\r\n    var count = 0;\r\n\r\n    this.allInputs().forEach(input =>\r\n        delete input.bindingID\r\n    );\r\n    this.allEmptySlots().forEach(slot => {\r\n        count += 1;\r\n        if (slot instanceof MultiArgMorph) {\r\n            slot.bindingID = Symbol.for('arguments');\r\n        } else {\r\n            slot.bindingID = count;\r\n        }\r\n    });\r\n    return count;\r\n};\r\n\r\n// BlockMorph code mapping\r\n\r\n/*\r\n    code mapping lets you use blocks to generate arbitrary text-based\r\n    source code that can be exported and compiled / embedded elsewhere,\r\n    it's not part of Snap's evaluator and not needed for Snap itself\r\n*/\r\n\r\nBlockMorph.prototype.toCode = function () {\r\n    return Process.prototype.reportMappedCode(this.reify());\r\n};\r\n\r\nBlockMorph.prototype.mapToHeader = function () {\r\n    // open a dialog box letting the user map header code via the GUI\r\n    var key = this.selector.substr(0, 5) === 'reify' ?\r\n            'reify' : this.selector,\r\n        block = this.codeDefinitionHeader(),\r\n        help,\r\n        pic;\r\n    block.addShadow(new Point(3, 3));\r\n    pic = block.doWithAlpha(1, () => block.fullImage());\r\n    if (this.isCustomBlock) {\r\n        help = 'Enter code that corresponds to the block\\'s definition. ' +\r\n            'Use the formal parameter\\nnames as shown and <body> to ' +\r\n            'reference the definition body\\'s generated text code.';\r\n    } else {\r\n        help = 'Enter code that corresponds to the block\\'s definition. ' +\r\n            'Choose your own\\nformal parameter names (ignoring the ones ' +\r\n            'shown).';\r\n    }\r\n    new DialogBoxMorph(\r\n        this,\r\n        code => {\r\n            if (this.isCustomBlock) {\r\n                this.definition.codeHeader = code;\r\n            } else {\r\n                StageMorph.prototype.codeHeaders[key] = code;\r\n            }\r\n        },\r\n        this\r\n    ).promptCode(\r\n        'Header mapping',\r\n        this.isCustomBlock ?\r\n            this.definition.codeHeader || ''\r\n                 : StageMorph.prototype.codeHeaders[key] || '',\r\n        this.world(),\r\n        pic,\r\n        help\r\n    );\r\n};\r\n\r\nBlockMorph.prototype.mapToCode = function () {\r\n    // open a dialog box letting the user map code via the GUI\r\n    var key = this.selector.substr(0, 5) === 'reify' ?\r\n            'reify' : this.selector,\r\n        block = this.codeMappingHeader(),\r\n        pic;\r\n    block.addShadow(new Point(3, 3));\r\n    pic = block.doWithAlpha(1, () => block.fullImage());\r\n    new DialogBoxMorph(\r\n        this,\r\n        code => {\r\n            if (this.isCustomBlock) {\r\n                this.definition.codeMapping = code;\r\n            } else {\r\n                StageMorph.prototype.codeMappings[key] = code;\r\n            }\r\n        },\r\n        this\r\n    ).promptCode(\r\n        'Code mapping',\r\n        this.isCustomBlock ?\r\n            this.definition.codeMapping || ''\r\n                 : StageMorph.prototype.codeMappings[key] || '',\r\n        this.world(),\r\n        pic,\r\n        'Enter code that corresponds to the block\\'s operation ' +\r\n            '(usually a single\\nfunction invocation). Use <#n> to ' +\r\n            'reference actual arguments as shown.'\r\n    );\r\n};\r\n\r\nBlockMorph.prototype.mapHeader = function (aString, key) {\r\n    // primitive for programatically mapping header code\r\n    var sel = key || this.selector.substr(0, 5) === 'reify' ?\r\n            'reify' : this.selector;\r\n    if (aString) {\r\n        if (this.isCustomBlock) {\r\n            this.definition.codeHeader = aString;\r\n        } else {\r\n            StageMorph.prototype.codeHeaders[sel] = aString;\r\n        }\r\n    }\r\n};\r\n\r\nBlockMorph.prototype.mapCode = function (aString, key) {\r\n    // primitive for programatically mapping code\r\n    var sel = key || this.selector.substr(0, 5) === 'reify' ?\r\n            'reify' : this.selector;\r\n    if (aString) {\r\n        if (this.isCustomBlock) {\r\n            this.definition.codeMapping = aString;\r\n        } else {\r\n            StageMorph.prototype.codeMappings[sel] = aString;\r\n        }\r\n    }\r\n};\r\n\r\nBlockMorph.prototype.mappedCode = function (definitions) {\r\n    var key = this.selector.substr(0, 5) === 'reify' ?\r\n            'reify' : this.selector,\r\n        code,\r\n        codeLines,\r\n        count = 1,\r\n        header,\r\n        headers,\r\n        headerLines,\r\n        body,\r\n        bodyLines,\r\n        defKey = this.isCustomBlock ? this.definition.spec : key,\r\n        defs = definitions || {},\r\n        parts = [];\r\n    code = key === 'reportGetVar' ? this.blockSpec\r\n            : this.isCustomBlock ? this.definition.codeMapping || ''\r\n                    : StageMorph.prototype.codeMappings[key] || '';\r\n\r\n    // map header\r\n    if (key !== 'reportGetVar' && !defs.hasOwnProperty(defKey)) {\r\n        defs[defKey] = null; // create the property for recursive definitions\r\n        if (this.isCustomBlock) {\r\n            header = this.definition.codeHeader || '';\r\n            if (header.indexOf('<body') !== -1) { // replace with def mapping\r\n                body = '';\r\n                if (this.definition.body) {\r\n                    body = this.definition.body.expression.mappedCode(defs);\r\n                }\r\n                bodyLines = body.split('\\n');\r\n                headerLines = header.split('\\n');\r\n                headerLines.forEach((headerLine, idx) => {\r\n                    var prefix = '',\r\n                        indent;\r\n                    if (headerLine.trimLeft().indexOf('<body') === 0) {\r\n                        indent = headerLine.indexOf('<body');\r\n                        prefix = headerLine.slice(0, indent);\r\n                    }\r\n                    headerLines[idx] = headerLine.replace(\r\n                        new RegExp('<body>'),\r\n                        bodyLines.join('\\n' + prefix)\r\n                    );\r\n                    headerLines[idx] = headerLines[idx].replace(\r\n                        new RegExp('<body>": [
+      "src\\blocks.js"
+    ],
+    "move up": [
+      "src\\byob.js"
+    ],
+    "move down": [
+      "src\\byob.js"
+    ],
+    "Event Hat": [
+      "src\\byob.js"
+    ],
+    "Enter one translation per line. ' +\r\n                'use colon (\":\") as lang/spec delimiter\\n' +\r\n                'and underscore (\"_\") as placeholder for an input, ' +\r\n                'e.g.:\\n\\nen:say _ for _ secs": [
+      "src\\byob.js"
+    ],
+    "Default Name:": [
+      "src\\byob.js"
+    ],
+    "separator": [
+      "src\\byob.js"
+    ],
+    "collapse": [
+      "src\\byob.js"
+    ],
+    "expand": [
+      "src\\byob.js"
+    ],
+    "initial slots": [
+      "src\\byob.js"
+    ],
+    "min slots": [
+      "src\\byob.js"
+    ],
+    "max slots": [
+      "src\\byob.js"
+    ],
+    "group": [
+      "src\\byob.js"
+    ],
+    "extension": [
+      "src\\byob.js"
+    ],
+    "Enter one option per line.\\n' +\r\n            'Optionally use \"=\" as key/value delimiter ' +\r\n            'and {} for submenus. ' +\r\n            'e.g.\\n   the answer=42": [
+      "src\\byob.js"
+    ],
+    "Enter one item per line.": [
+      "src\\byob.js",
+      "src\\byob.js",
+      "src\\byob.js"
+    ],
+    "primitives": [
+      "src\\byob.js"
+    ],
+    "selector...": [
+      "src\\byob.js"
+    ],
+    "un-bootstrap": [
+      "src\\byob.js"
+    ],
+    "bootstrap": [
+      "src\\byob.js"
+    ],
+    "Selector": [
+      "src\\byob.js"
+    ],
+    "Separator": [
+      "src\\byob.js"
+    ],
+    "Collapse": [
+      "src\\byob.js"
+    ],
+    "Initial slots": [
+      "src\\byob.js"
+    ],
+    "Min slots": [
+      "src\\byob.js"
+    ],
+    "Max slots": [
+      "src\\byob.js"
+    ],
+    "This global block definition contains one or more\\n": [
+      "src\\byob.js"
+    ],
+    "no blocks were selected": [
+      "src\\byob.js",
+      "src\\byob.js",
+      "src\\byob.js"
+    ],
+    "Warning:\\nGeolocation failed.');\r\n        }\r\n\r\n        navigator.geolocation.getCurrentPosition(\r\n            success,\r\n            error,\r\n            options\r\n        );\r\n        return () => crd;\r\n    }\r\n);\r\n\r\n// Device Orientation (ori_ \"tilt\")\r\n\r\nSnapExtensions.primitives.set(\r\n    'ori_tilt(xyz)',\r\n    function (axis) {\r\n        var ide = this.parentThatIsA(IDE_Morph),\r\n            isPortrait = window.matchMedia(\"(orientation: portrait)\").matches,\r\n            myself = this,\r\n            x, y, z;\r\n\r\n        function updateTilt(event) {\r\n            var z = event.alpha || 0;\r\n            ide.tilt.put(event.gamma || 0, 1);\r\n            ide.tilt.put(-(event.beta || 0), 2);\r\n            ide.tilt.put(z >= 180 ? 360 - z : -z, 3);\r\n        }\r\n\r\n        function userTriggerTilt() {\r\n            DeviceOrientationEvent.requestPermission().then(response => {\r\n                if (response === 'granted') {\r\n                    // Permission granted\r\n                    window.addEventListener(\r\n                        'deviceorientation',\r\n                        updateTilt\r\n                    );\r\n                } else {\r\n                    // Permission denied\r\n                    myself.inform('Warning:\\nDevice orientation failed.');\r\n                }\r\n            }).catch(console.error);\r\n        }\r\n\r\n        function activate() {\r\n            if (typeof(DeviceOrientationEvent) !== 'undefined' &&\r\n                typeof(DeviceOrientationEvent.requestPermission) === 'function'\r\n            ) {\r\n                ide.confirm(\r\n                    'Activate device orientation": [
+      "src\\extensions.js"
+    ],
+    "Tilt Sensor": [
+      "src\\extensions.js"
+    ],
+    "Puzzle": [
+      "src\\gui.js",
+      "src\\gui.js"
+    ],
+    "by ": [
+      "src\\gui.js"
+    ],
+    "Could not export": [
+      "src\\gui.js"
+    ],
+    "This version of Snap! is being developed.\\n' +\r\n            '*** It is NOT supported for end users. ***\\n' +\r\n            'Saving a project in THIS version is likely to\\n' +\r\n            'make it UNUSABLE or DEFECTIVE for current and\\n' +\r\n            'even future official versions!\\n\\n' +\r\n            'visit https://snap.berkeley.edu/run\\n' +\r\n            'for the official Snap! installation.": [
+      "src\\gui.js"
+    ],
+    "Today, ": [
+      "src\\gui.js"
+    ],
+    "Yesterday, ": [
+      "src\\gui.js"
+    ],
+    "costumes tab help\" // look up long string in translator\r\n    ));\r\n    txt.fontSize = 9;\r\n    txt.setColor(SpriteMorph.prototype.paletteTextColor);\r\n\r\n    txt.setPosition(new Point(x, y));\r\n    this.addContents(txt);\r\n    y = txt.bottom() + padding;\r\n\r\n    this.sprite.costumes.asArray().forEach(costume => {\r\n        icon = new CostumeIconMorph(costume);\r\n        icon.setPosition(new Point(x, y));\r\n        this.addContents(icon);\r\n        y = icon.bottom() + padding;\r\n    });\r\n    this.costumesVersion = this.sprite.costumes.lastChanged;\r\n\r\n    this.contents.setPosition(oldPos);\r\n    this.adjustScrollBars();\r\n    this.changed();\r\n\r\n    this.updateSelection();\r\n};\r\n\r\nWardrobeMorph.prototype.updateSelection = function () {\r\n    this.contents.children.forEach(function (morph) {\r\n        if (morph.refresh) {\r\n            morph.refresh();\r\n        }\r\n    });\r\n    this.spriteVersion = this.sprite.version;\r\n};\r\n\r\n// Wardrobe stepping\r\n\r\nWardrobeMorph.prototype.step = function () {\r\n    if (this.costumesVersion !== this.sprite.costumes.lastChanged) {\r\n        this.updateList();\r\n    }\r\n    if (this.spriteVersion !== this.sprite.version) {\r\n        this.updateSelection();\r\n    }\r\n};\r\n\r\n// Wardrobe ops\r\n\r\nWardrobeMorph.prototype.removeCostumeAt = function (idx) {\r\n    this.sprite.shadowAttribute('costumes');\r\n    this.sprite.costumes.remove(idx);\r\n    this.updateList();\r\n};\r\n\r\nWardrobeMorph.prototype.paintNew = function () {\r\n    var ide = this.parentThatIsA(IDE_Morph),\r\n        cos = new Costume(\r\n            newCanvas(null, true),\r\n            this.sprite.newCostumeName(localize('Untitled')),\r\n            null, // rotation center\r\n            null, // don't shrink-to-fit\r\n            ide.stage.dimensions // max extent\r\n        );\r\n\r\n    cos.edit(\r\n        this.world(),\r\n        ide,\r\n        true,\r\n        null,\r\n        () => {\r\n            this.sprite.shadowAttribute('costumes');\r\n            this.sprite.addCostume(cos);\r\n            this.updateList();\r\n            this.sprite.wearCostume(cos);\r\n            this.sprite.recordUserEdit(\r\n                'costume',\r\n                'draw',\r\n                cos.name\r\n            );\r\n        }\r\n    );\r\n};\r\n\r\nWardrobeMorph.prototype.newFromCam = function () {\r\n    var camDialog,\r\n        ide = this.parentThatIsA(IDE_Morph),\r\n        sprite = this.sprite;\r\n\r\n    camDialog = new CamSnapshotDialogMorph(\r\n        ide,\r\n        sprite,\r\n        nop,\r\n        costume => {\r\n            sprite.addCostume(costume);\r\n            sprite.wearCostume(costume);\r\n            this.updateList();\r\n            sprite.recordUserEdit(\r\n                'costume',\r\n                'snap',\r\n                costume.name\r\n            );\r\n        });\r\n\r\n    camDialog.key = 'camera';\r\n    camDialog.popUp(this.world());\r\n};\r\n\r\n// Wardrobe drag & drop\r\n\r\nWardrobeMorph.prototype.wantsDropOf = function (morph) {\r\n    return morph instanceof CostumeIconMorph;\r\n};\r\n\r\nWardrobeMorph.prototype.reactToDropOf = function (icon) {\r\n    var idx = 0,\r\n        costume = icon.object,\r\n        top = icon.top();\r\n    icon.destroy();\r\n    this.contents.children.forEach(item => {\r\n        if (item instanceof CostumeIconMorph && item.top() < top - 4) {\r\n            idx += 1;\r\n        }\r\n    });\r\n    this.sprite.shadowAttribute('costumes');\r\n    this.sprite.costumes.add(costume, idx + 1);\r\n    this.updateList();\r\n    icon.mouseClickLeft(); // select\r\n    this.sprite.recordUserEdit(\r\n        'costume',\r\n        'add',\r\n        costume.name,\r\n        idx + 1\r\n    );\r\n};\r\n\r\n// SoundIconMorph ///////////////////////////////////////////////////////\r\n\r\n/*\r\n    I am an element in the SpriteEditor's \"Sounds\" tab.\r\n*/\r\n\r\n// SoundIconMorph inherits from ToggleButtonMorph (Widgets)\r\n// ... and copies methods from SpriteIconMorph\r\n\r\nSoundIconMorph.prototype = new ToggleButtonMorph();\r\nSoundIconMorph.prototype.constructor = SoundIconMorph;\r\nSoundIconMorph.uber = ToggleButtonMorph.prototype;\r\n\r\n// SoundIconMorph settings\r\n\r\nSoundIconMorph.prototype.thumbSize = new Point(80, 60);\r\nSoundIconMorph.prototype.labelShadowOffset = null;\r\nSoundIconMorph.prototype.labelShadowColor = null;\r\nSoundIconMorph.prototype.labelColor = WHITE;\r\nSoundIconMorph.prototype.fontSize = 9;\r\n\r\n// SoundIconMorph instance creation:\r\n\r\nfunction SoundIconMorph(aSound) {\r\n    this.init(aSound);\r\n}\r\n\r\nSoundIconMorph.prototype.init = function (aSound) {\r\n    var colors, action, query;\r\n\r\n    colors = [\r\n        IDE_Morph.prototype.groupColor,\r\n        IDE_Morph.prototype.frameColor,\r\n        IDE_Morph.prototype.frameColor\r\n    ];\r\n\r\n    action = nop; // When I am selected (which is never the case for sounds)\r\n\r\n    query = () => false;\r\n\r\n    // additional properties:\r\n    this.object = aSound; // mandatory, actually\r\n    this.version = this.object.version;\r\n    this.thumbnail = null;\r\n\r\n    // initialize inherited properties:\r\n    SoundIconMorph.uber.init.call(\r\n        this,\r\n        colors, // color overrides, <array>: [normal, highlight, pressed]\r\n        null, // target - not needed here\r\n        action, // a toggle function\r\n        this.object.name, // label string\r\n        query, // predicate/selector\r\n        null, // environment\r\n        null // hint\r\n    );\r\n\r\n    // override defaults and build additional components\r\n    this.isDraggable = true;\r\n    this.createThumbnail();\r\n    this.padding = 2;\r\n    this.corner = 8;\r\n    this.fixLayout();\r\n    this.fps = 1;\r\n};\r\n\r\nSoundIconMorph.prototype.createThumbnail = function () {\r\n    var label;\r\n    if (this.thumbnail) {\r\n        this.thumbnail.destroy();\r\n    }\r\n    this.thumbnail = new Morph();\r\n    this.thumbnail.bounds.setExtent(this.thumbSize);\r\n    this.add(this.thumbnail);\r\n    label = new StringMorph(\r\n        this.createInfo(),\r\n        '16',\r\n        '',\r\n        true,\r\n        false,\r\n        false,\r\n        this.labelShadowOffset,\r\n        this.labelShadowColor,\r\n        new Color(200, 200, 200)\r\n    );\r\n    this.thumbnail.add(label);\r\n    label.setCenter(new Point(40, 15));\r\n\r\n    this.button = new PushButtonMorph(\r\n        this,\r\n        'toggleAudioPlaying',\r\n        (this.object.previewAudio ? 'Stop' : 'Play')\r\n    );\r\n    this.button.hint = 'Play sound';\r\n    this.button.fixLayout();\r\n    this.thumbnail.add(this.button);\r\n    this.button.setCenter(new Point(40, 40));\r\n};\r\n\r\nSoundIconMorph.prototype.createInfo = function () {\r\n    var dur = Math.round(this.object.audio.duration || 0),\r\n        mod = dur % 60;\r\n    return Math.floor(dur / 60).toString()\r\n            + \":\"\r\n            + (mod < 10 ? \"0\" : \"": [
+      "src\\gui.js"
+    ],
+    "import a sound from your computer\\nby dragging it into here": [
+      "src\\gui.js"
+    ],
+    "Performer mode scale...": [
+      "src\\gui.js"
+    ],
+    "png...": [
+      "src\\gui.js"
+    ],
+    "poly svg...": [
+      "src\\gui.js",
+      "src\\gui.js",
+      "src\\objects.js"
+    ],
+    "dst...": [
+      "src\\gui.js",
+      "src\\gui.js",
+      "src\\objects.js"
+    ],
+    "exp...": [
+      "src\\gui.js",
+      "src\\gui.js",
+      "src\\objects.js"
+    ],
+    "Export customized primitives...": [
+      "src\\gui.js"
+    ],
+    "Remove template": [
+      "src\\gui.js"
+    ],
+    "Launch tutorial...": [
+      "src\\gui.js"
+    ],
+    "extract solution": [
+      "src\\gui.js"
+    ],
+    "delete solution": [
+      "src\\gui.js"
+    ],
+    "get": [
+      "src\\gui.js"
+    ],
+    "launch...": [
+      "src\\gui.js"
+    ],
+    "Author name…": [
+      "src\\gui.js"
+    ],
+    "Project name...": [
+      "src\\gui.js"
+    ],
+    "Performer mode scale": [
+      "src\\gui.js"
+    ],
+    "Dragging threshold": [
+      "src\\gui.js"
+    ],
+    "Cloud URL": [
+      "src\\gui.js"
+    ],
+    "rename scene": [
+      "src\\gui.js"
+    ],
+    "Unverified account": [
+      "src\\gui.js"
+    ],
+    "Your account is still unverified.\\n": [
+      "src\\gui.js"
+    ],
+    "Snap!', motd);\r\n    }\r\n    */\r\n\r\n    function interpretUrlAnchors() {\r\n        var dict, idx;\r\n\r\n        if (location.hash.substr(0, 6) === '#open:') {\r\n            hash = location.hash.substr(6);\r\n            if (hash.charAt(0) === '%'\r\n                    || hash.search(/\\%(?:[0-9a-f]{2})/i) > -1) {\r\n                hash = decodeURIComponent(hash);\r\n            }\r\n            if (contains(\r\n                    ['project": [
+      "src\\gui.js"
+    ],
+    "Unable to import this image": [
+      "src\\gui.js"
+    ],
+    "The picture you wish to import has been\\n": [
+      "src\\gui.js"
+    ],
+    "About Snap', aboutTxt, world, this.logo.cachedTexture);\r\n    btn1 = dlg.buttons.children[0];\r\n    translatorsBtn = dlg.addButton(\r\n        () => {\r\n            dlg.addBody(txt(translations));\r\n            dlg.body.fixLayout();\r\n            btn1.show();\r\n            btn2.show();\r\n            btn3.hide();\r\n            btn4.hide();\r\n            licenseBtn.hide();\r\n            translatorsBtn.hide();\r\n            dlg.fixLayout();\r\n            dlg.setCenter(world.center());\r\n        },\r\n        'Translators...'\r\n    );\r\n    btn2 = dlg.addButton(\r\n        () => {\r\n            dlg.addBody(txt(aboutTxt));\r\n            dlg.body.fixLayout();\r\n            btn1.show();\r\n            btn2.hide();\r\n            btn3.show();\r\n            btn4.show();\r\n            licenseBtn.show();\r\n            translatorsBtn.hide();\r\n            dlg.fixLayout();\r\n            dlg.setCenter(world.center());\r\n        },\r\n        'Back...'\r\n    );\r\n    btn2.hide();\r\n    licenseBtn = dlg.addButton(\r\n        () => {\r\n            dlg.addBody(txt(noticeTxt));\r\n            dlg.body.fixLayout();\r\n            btn1.show();\r\n            btn2.show();\r\n            btn3.hide();\r\n            btn4.hide();\r\n            licenseBtn.hide();\r\n            translatorsBtn.hide();\r\n            dlg.fixLayout();\r\n            dlg.setCenter(world.center());\r\n        },\r\n        'License...'\r\n    );\r\n    btn3 = dlg.addButton(\r\n        () => {\r\n            dlg.addBody(txt(versions));\r\n            dlg.body.fixLayout();\r\n            btn1.show();\r\n            btn2.show();\r\n            btn3.hide();\r\n            btn4.hide();\r\n            licenseBtn.hide();\r\n            translatorsBtn.hide();\r\n            dlg.fixLayout();\r\n            dlg.setCenter(world.center());\r\n        },\r\n        'Modules...'\r\n    );\r\n    btn4 = dlg.addButton(\r\n        () => {\r\n            dlg.addBody(txt(creditsTxt));\r\n            dlg.body.fixLayout();\r\n            btn1.show();\r\n            btn2.show();\r\n            translatorsBtn.show();\r\n            btn3.hide();\r\n            btn4.hide();\r\n            licenseBtn.hide();\r\n            dlg.fixLayout();\r\n            dlg.setCenter(world.center());\r\n        },\r\n        'Credits...'\r\n    );\r\n    translatorsBtn.hide();\r\n    dlg.fixLayout();\r\n};\r\n\r\nIDE_Morph.prototype.scenesMenu = function () {\r\n    var menu = new MenuMorph(scn => this.switchToScene(scn), null, this),\r\n        world = this.world(),\r\n        pos = this.controlBar.projectButton.bottomLeft(),\r\n        tick = new SymbolMorph(\r\n            'tick',\r\n            MorphicPreferences.menuFontSize * 0.75\r\n        ),\r\n        empty = tick.fullCopy();\r\n\r\n    empty.render = nop;\r\n    this.scenes.asArray().forEach(scn =>\r\n        menu.addItem(\r\n            [\r\n                this.scene === scn ? tick : empty,\r\n                scn.name\r\n            ],\r\n            scn\r\n        )\r\n    );\r\n    menu.popup(world, pos);\r\n};\r\n\r\nIDE_Morph.prototype.editNotes = function () {\r\n    var dialog = new DialogBoxMorph().withKey('notes'),\r\n        frame = new ScrollFrameMorph(),\r\n        text = new TextMorph(this.scenes.at(1).notes || ''),\r\n        size = 250,\r\n        world = this.world();\r\n\r\n    frame.padding = 6;\r\n    frame.setWidth(size);\r\n    frame.acceptsDrops = false;\r\n    frame.contents.acceptsDrops = false;\r\n\r\n    text.setWidth(size - frame.padding * 2);\r\n    text.setPosition(frame.topLeft().add(frame.padding));\r\n    text.enableSelecting();\r\n    text.isEditable = true;\r\n\r\n    frame.setHeight(size);\r\n    frame.fixLayout = nop;\r\n    frame.edge = InputFieldMorph.prototype.edge;\r\n    frame.fontSize = InputFieldMorph.prototype.fontSize;\r\n    frame.typeInPadding = InputFieldMorph.prototype.typeInPadding;\r\n    frame.contrast = InputFieldMorph.prototype.contrast;\r\n    frame.render = InputFieldMorph.prototype.render;\r\n    frame.drawRectBorder = InputFieldMorph.prototype.drawRectBorder;\r\n\r\n    frame.addContents(text);\r\n\r\n    dialog.getInput = () => text.text;\r\n\r\n    dialog.target = this;\r\n\r\n    dialog.action = (note) => {\r\n        this.scene.notes = note;\r\n        this.recordUnsavedChanges();\r\n    };\r\n\r\n    dialog.justDropped = () => text.edit();\r\n\r\n    dialog.labelString = 'Notes';\r\n    dialog.createLabel();\r\n    dialog.addBody(frame);\r\n    dialog.addButton('ok": [
+      "src\\gui.js"
+    ],
+    "this project doesn\\'t have any\\n": [
+      "src\\gui.js"
+    ],
+    "Export customized primitives": [
+      "src\\gui.js"
+    ],
+    "this session doesn\\'t have any\\n": [
+      "src\\gui.js"
+    ],
+    "there are currently no unused\\n": [
+      "src\\gui.js"
+    ],
+    "Unverified account: ' + duration + ' left' +\r\n                        'You are now logged in, and your account\\n' +\r\n                        'is enabled for ' + duration + '.\\n' +\r\n                        'Please use the verification link that\\n' +\r\n                        'was sent to your email address when you\\n' +\r\n                        'signed up.\\n\\n' +\r\n                        'If you cannot find that email, please\\n' +\r\n                        'check your spam folder. If you still\\n' +\r\n                        'cannot find it, please use the \"Resend\\n' +\r\n                        'Verification Email...\" option in the cloud\\n' +\r\n                        'menu.\\n\\n' +\r\n                        'You have ' + duration + ' left.',\r\n                        world,\r\n                        this.cloudIcon(null, new Color(0, 180, 0))\r\n                    );\r\n                } else if (response.title) {\r\n                    new DialogBoxMorph().inform(\r\n                        response.title,\r\n                        response.message,\r\n                        world,\r\n                        this.cloudIcon(null, new Color(0, 180, 0))\r\n                    );\r\n                } else {\r\n                    this.showMessage(response.message, 2);\r\n                }\r\n            },\r\n            this.cloudError()\r\n        )\r\n    ).withKey('cloudlogin').promptCredentials(\r\n        'Sign in": [
+      "src\\gui.js"
+    ],
+    "Snap!Cloud - Cannot Save Project": [
+      "src\\gui.js"
+    ],
+    "The media inside this project exceeds 10 MB.\\n": [
+      "src\\gui.js"
+    ],
+    "Cloud Connection": [
+      "src\\gui.js"
+    ],
+    "Successfully connected to:\\n": [
+      "src\\gui.js"
+    ],
+    "http://": [
+      "src\\gui.js"
+    ],
+    "Snap!Cloud',\r\n            (url ? url + '\\n' : '')\r\n                + response,\r\n            this.world(),\r\n            this.cloudIcon(null, new Color(180, 0, 0))\r\n        );\r\n    };\r\n};\r\n\r\nIDE_Morph.prototype.cloudIcon = function (height, color) {\r\n    var clr = color || DialogBoxMorph.prototype.titleBarColor,\r\n        isFlat = MorphicPreferences.isFlat,\r\n        icon = new SymbolMorph(\r\n            isFlat ? 'cloud' : 'cloudGradient',\r\n            height || 50,\r\n            clr,\r\n            isFlat ? null : new Point(-1, -1),\r\n            clr.darker(50)\r\n        );\r\n    if (!isFlat) {\r\n        icon.addShadow(new Point(1, 1), 1, clr.lighter(95));\r\n    }\r\n    return icon;\r\n};\r\n\r\nIDE_Morph.prototype.setCloudURL = function () {\r\n    new DialogBoxMorph(\r\n        null,\r\n        url => {\r\n            this.cloud.url = url;\r\n            this.cloud.checkCredentials(\r\n                () => this.controlBar.cloudButton.refresh(),\r\n                () => this.controlBar.cloudButton.refresh()\r\n            );\r\n        }\r\n    ).withKey('cloudURL').prompt(\r\n        'Cloud URL',\r\n        this.cloud.url,\r\n        this.world(),\r\n        null,\r\n        this.cloud.knownDomains\r\n    );\r\n};\r\n\r\nIDE_Morph.prototype.urlParameters = function () {\r\n    var parameters = location.hash.slice(location.hash.indexOf(':') + 1);\r\n    return this.cloud.parseDict(parameters);\r\n};\r\n\r\nIDE_Morph.prototype.hasCloudProject = function () {\r\n    var params = this.urlParameters();\r\n    return params.hasOwnProperty('Username') &&\r\n        params.hasOwnProperty('ProjectName');\r\n};\r\n\r\n// IDE_Morph HTTP data fetching\r\n\r\nIDE_Morph.prototype.getURL = function (url, callback, responseType) {\r\n    // fetch the contents of a url and pass it into the specified callback.\r\n    // If no callback is specified synchronously fetch and return it\r\n    // Note: Synchronous fetching has been deprecated and should be switched\r\n    // Note: Do Not attemp to prevent caching of requests.\r\n    //   This has caused issues for BJC and the finch.\r\n    var request = new XMLHttpRequest(),\r\n        async = callback instanceof Function,\r\n        rsp;\r\n    if (async) {\r\n        request.responseType = responseType || 'text';\r\n    }\r\n    rsp = (!async || request.responseType === 'text') ? 'responseText'\r\n        : 'response';\r\n    try {\r\n        request.open('GET', url, async);\r\n        if (async) {\r\n            request.onreadystatechange = () => {\r\n                if (request.readyState === 4) {\r\n                    if (request[rsp]) {\r\n                        callback.call(\r\n                            this,\r\n                            request[rsp]\r\n                        );\r\n                    } else {\r\n                        this.showMessage('unable to retrieve ' + url);\r\n                        throw new Error('unable to retrieve ' + url);\r\n                    }\r\n                }\r\n            };\r\n        }\r\n        request.send();\r\n        if (!async) {\r\n            if (request.status === 200) {\r\n                return request[rsp];\r\n            }\r\n            throw new Error('unable to retrieve ' + url);\r\n        }\r\n    } catch (err) {\r\n        this.showMessage(err.toString());\r\n        if (async) {\r\n            callback.call(this);\r\n        } else {\r\n            return request[rsp];\r\n        }\r\n    }\r\n};\r\n\r\n// IDE_Morph serialization helper ops\r\n\r\nIDE_Morph.prototype.blocksLibraryXML = function (\r\n    definitions,\r\n    moreCategories,\r\n    asFile,\r\n    dataFrame, // optional: include global variable dependencies in libraries\r\n    localData // optional: include sprite-local variable dependencies\r\n) {\r\n    // answer an XML string encoding of an array of CustomBlockDefinitions\r\n    var prims = definitions.filter(def => def.isGlobal && def.selector),\r\n        globals = definitions.filter(def => def.isGlobal && !def.selector),\r\n        locals = definitions.filter(def => !def.isGlobal),\r\n        primStr = prims.length ? this.serializer.serialize(prims, true) : '',\r\n        glbStr = globals.length ? this.serializer.serialize(globals, true) : '',\r\n        locStr = locals.length ? this.serializer.serialize(locals, true) : '',\r\n        dtaStr = dataFrame && dataFrame.names(true).length ?\r\n            this.serializer.serialize(dataFrame, true)\r\n            : '',\r\n        ldtStr = localData && localData.names(true).length ?\r\n            this.serializer.serialize(localData, true)\r\n            : '',\r\n        cats = moreCategories || [],\r\n        appStr = ' app=\"' +\r\n            this.serializer.app +\r\n            '\" version=\"' +\r\n            this.serializer.version +\r\n            '\"';\r\n\r\n    return '<blocks' +\r\n        (asFile ? appStr : '' ) +\r\n        '>' +\r\n        this.paletteXML(definitions.map(def => def.category).concat(cats)) +\r\n        (globals.length ? glbStr : '') +\r\n        (prims.length ? ('<primitives>' + primStr + '</primitives>') : '') +\r\n        (locals.length ? ('<local>' + locStr + '</local>') : '') +\r\n        (dtaStr ? '<variables>' + dtaStr + '</variables>' : '') +\r\n        (ldtStr ? '<local-variables>' + ldtStr + '</local-variables>' : '') +\r\n        '</blocks>';\r\n};\r\n\r\nIDE_Morph.prototype.paletteXML = function (categoryNames) {\r\n    // answer an XML string containing the palette information\r\n    // found in an array of category names\r\n    var palette = new Map();\r\n    categoryNames.forEach(cat => {\r\n        if (SpriteMorph.prototype.customCategories.has(cat)) {\r\n            palette.set(\r\n                cat,\r\n                SpriteMorph.prototype.customCategories.get(cat)\r\n            );\r\n        }\r\n    });\r\n    return this.serializer.paletteToXML(palette);\r\n};\r\n\r\n// IDE_Morph user dialog shortcuts\r\n\r\nIDE_Morph.prototype.showMessage = function (message, secs, atHand = false) {\r\n    var m = new MenuMorph(null, message),\r\n        intervalHandle;\r\n    if (atHand) {\r\n        m.popUpCenteredAtHand(this.world());\r\n    } else {\r\n        m.popUpCenteredInWorld(this.world());\r\n    }\r\n    if (secs) {\r\n        intervalHandle = setInterval(\r\n            () => {\r\n                m.destroy();\r\n                clearInterval(intervalHandle);\r\n            },\r\n            secs * 1000\r\n        );\r\n    }\r\n    return m;\r\n};\r\n\r\nIDE_Morph.prototype.inform = function (title, message) {\r\n    return new DialogBoxMorph().inform(\r\n        title,\r\n        localize(message),\r\n        this.world()\r\n    );\r\n};\r\n\r\nIDE_Morph.prototype.confirm = function (message, title, action) {\r\n    new DialogBoxMorph(null, action).askYesNo(\r\n        title,\r\n        localize(message),\r\n        this.world()\r\n    );\r\n};\r\n\r\nIDE_Morph.prototype.prompt = function (message, callback, choices, key) {\r\n    (new DialogBoxMorph(null, callback)).withKey(key).prompt(\r\n        message,\r\n        '',\r\n        this.world(),\r\n        null,\r\n        choices\r\n    );\r\n};\r\n\r\n// IDE_Morph bracing against IE\r\n\r\nIDE_Morph.prototype.warnAboutIE = function () {\r\n    var dlg, txt;\r\n    if (this.isIE()) {\r\n        dlg = new DialogBoxMorph();\r\n        txt = new TextMorph(\r\n            'Please do not use Internet Explorer.\\n' +\r\n                'Snap! runs best in a web-standards\\n' +\r\n                'compliant browser',\r\n            dlg.fontSize,\r\n            dlg.fontStyle,\r\n            true,\r\n            false,\r\n            'center',\r\n            null,\r\n            null,\r\n            MorphicPreferences.isFlat ? null : new Point(1, 1),\r\n            WHITE\r\n        );\r\n\r\n        dlg.key = 'IE-Warning';\r\n        dlg.labelString = \"Internet Explorer\";\r\n        dlg.createLabel();\r\n        dlg.addBody(txt);\r\n        dlg.fixLayout();\r\n        dlg.popUp(this.world());\r\n        dlg.nag = true;\r\n    }\r\n};\r\n\r\nIDE_Morph.prototype.isIE = function () {\r\n    var ua = navigator.userAgent;\r\n    return ua.indexOf(\"MSIE \") > -1 || ua.indexOf(\"Trident/\") > -1;\r\n};\r\n\r\n// IDE_Morph warn about saving project in the dev version\r\n\r\nIDE_Morph.prototype.warnAboutDev = function () {\r\n    if (!SnapVersion.includes('-dev') || this.config.noDevWarning) {\r\n        return;\r\n    }\r\n    if (this.devWarned) { return; }\r\n    // postpone if target language is non-English or dictionary not yet ready\r\n    var hash = location.hash || '',\r\n        desiredLang = null,\r\n        lang = SnapTranslator.language || 'en',\r\n        dictReady = SnapTranslator.dict[lang] &&\r\n            Object.prototype.hasOwnProperty.call(\r\n                SnapTranslator.dict[lang],\r\n                'CAUTION! Development Version'\r\n            );\r\n    if (hash.substr(0, 6) === '#lang:') {\r\n        desiredLang = hash.charAt(8) === '_' ? hash.slice(6, 11) : hash.slice(6, 8);\r\n    }\r\n    desiredLang = this.cloud.parseDict(hash).lang || desiredLang || this.userLanguage;\r\n    if ((lang === 'en' && desiredLang && desiredLang !== 'en') || !dictReady) {\r\n        this.devWarningPending = true;\r\n        return;\r\n    }\r\n    this.inform(\r\n        localize(\"CAUTION! Development Version\"),\r\n        localize(\r\n            'This version of Snap! is being developed.\\n' +\r\n            '*** It is NOT supported for end users. ***\\n' +\r\n            'Saving a project in THIS version is likely to\\n' +\r\n            'make it UNUSABLE or DEFECTIVE for current and\\n' +\r\n            'even future official versions!\\n\\n' +\r\n            'visit https://snap.berkeley.edu/run\\n' +\r\n            'for the official Snap! installation.'\r\n        )\r\n    ).nag = true;\r\n    this.devWarned = true;\r\n};\r\n\r\n// IDE_Morph tutorial scene\r\n\r\nIDE_Morph.prototype.launchTutorial = function (scene) {\r\n    // open and run a scene in a separate dialog box\r\n    var dlg = new DialogBoxMorph(\r\n                null,\r\n                () => {\r\n                    scene.stop();\r\n                    this.tutorial = null;\r\n                    this.corral.fixLayout(); // update scene icons\r\n                }\r\n            ).withKey('tutorial ' + scene.name),\r\n        handle,\r\n        diff;\r\n\r\n    this.escapeTutorial();\r\n    dlg.scene = scene;\r\n    dlg.ide = this;\r\n    scene.stage.setScale(1);\r\n    scene.stage.tutorialMode = true;\r\n    dlg.labelString = scene.name;\r\n    dlg.createLabel();\r\n    dlg.addBody(scene.stage);\r\n    // dlg.addButton('ok": [
+      "src\\gui.js"
+    ],
+    "Close": [
+      "src\\gui.js"
+    ],
+    "Camera not supported',\r\n            CamSnapshotDialogMorph.prototype.notSupportedMessage\r\n        );\r\n        if (myself.videoElement) {\r\n        \tmyself.videoElement.remove();\r\n        }\r\n        myself.cancel();\r\n\t}\r\n\r\n    this.videoElement = document.createElement('video');\r\n    this.videoElement.hidden = true;\r\n    this.videoElement.width = stage.dimensions.x;\r\n    this.videoElement.height = stage.dimensions.y;\r\n\r\n    document.body.appendChild(this.videoElement);\r\n\r\n    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {\r\n        navigator.mediaDevices.getUserMedia({ video: true })\r\n            .then(stream => {\r\n                this.videoElement.srcObject = stream;\r\n                this.videoElement.play().catch(noCameraSupport);\r\n                this.videoElement.stream = stream;\r\n            }).catch(noCameraSupport);\r\n    }\r\n\r\n    this.videoView.setExtent(stage.dimensions);\r\n    this.videoView.cachedImage = newCanvas(\r\n        stage.dimensions,\r\n        true, // retina, maybe overkill here\r\n        this.videoView.cachedImage\r\n    );\r\n\r\n    this.videoView.drawOn = function (ctx, rect) {\r\n        var videoWidth = myself.videoElement.videoWidth,\r\n            videoHeight = myself.videoElement.videoHeight,\r\n            w = stage.dimensions.x,\r\n            h = stage.dimensions.y,\r\n            clippingWidth, clippingHeight;\r\n\r\n        if (!videoWidth) { return; }\r\n\r\n        ctx.save();\r\n\r\n        // Flip the image so it looks like a mirror\r\n        ctx.translate(w, 0);\r\n        ctx.scale(-1, 1);\r\n\r\n        if (videoWidth / w > videoHeight / h) {\r\n            // preserve height, crop width\r\n            clippingWidth = w * (videoHeight / h);\r\n            clippingHeight = videoHeight;\r\n        } else {\r\n            // preserve width, crop height\r\n            clippingWidth = videoWidth;\r\n            clippingHeight = h * (videoWidth / w);\r\n        }\r\n\r\n        ctx.drawImage(\r\n            myself.videoElement,\r\n            0,\r\n            0,\r\n            clippingWidth,\r\n            clippingHeight,\r\n            this.left() * -1,\r\n            this.top(),\r\n            w,\r\n            h\r\n            );\r\n\r\n        ctx.restore();\r\n    };\r\n\r\n    this.videoView.step = function () {\r\n        this.changed();\r\n    };\r\n\r\n    this.addBody(new AlignmentMorph('column', this.padding / 2));\r\n    this.body.add(this.videoView);\r\n    this.body.fixLayout();\r\n\r\n    this.addButton('ok": [
+      "src\\gui.js"
+    ],
+    "1...": [
+      "src\\lists.js"
+    ],
+    "\\ncolor:": [
+      "src\\morphic.js",
+      "src\\morphic.js"
+    ],
+    "\\nalpha\\nvalue:": [
+      "src\\morphic.js"
+    ],
+    "set rotation": [
+      "src\\morphic.js"
+    ],
+    "set target": [
+      "src\\morphic.js",
+      "src\\morphic.js",
+      "src\\morphic.js"
+    ],
+    "horizontal...": [
+      "src\\morphic.js"
+    ],
+    "vertical...": [
+      "src\\morphic.js"
+    ],
+    "show value...": [
+      "src\\morphic.js"
+    ],
+    "floor...": [
+      "src\\morphic.js"
+    ],
+    "ceiling...": [
+      "src\\morphic.js"
+    ],
+    "button size...": [
+      "src\\morphic.js"
+    ],
+    "do it": [
+      "src\\morphic.js"
+    ],
+    "show it": [
+      "src\\morphic.js"
+    ],
+    "inspect it": [
+      "src\\morphic.js"
+    ],
+    "select all": [
+      "src\\morphic.js"
+    ],
+    "hide holes": [
+      "src\\morphic.js"
+    ],
+    "show holes": [
+      "src\\morphic.js"
+    ],
+    "dial": [
+      "src\\morphic.js"
+    ],
+    "Key pressed: ' +\r\n            String.fromCharCode(event.charCode) +\r\n            '\\n------------------------' +\r\n            '\\ncharCode: ' +\r\n            event.charCode.toString() +\r\n            '\\nkeyCode: ' +\r\n            event.keyCode.toString() +\r\n            '\\nkey: ' +\r\n            event.key.toString() +\r\n            '\\nshiftKey: ' +\r\n            event.shiftKey.toString() +\r\n            '\\naltKey: ' +\r\n            event.altKey.toString() +\r\n            '\\nctrlKey: ' +\r\n            event.ctrlKey.toString() +\r\n            '\\ncmdKey: ' +\r\n            event.metaKey.toString()\r\n    );\r\n};\r\n\r\n// Morph menus:\r\n\r\nMorph.prototype.contextMenu = function () {\r\n    var world;\r\n\r\n    if (this.customContextMenu) {\r\n        return this.customContextMenu;\r\n    }\r\n    world = this.world instanceof Function ? this.world() : this.world;\r\n    if (world && world.isDevMode) {\r\n        if (this.parent === world) {\r\n            return this.developersMenu();\r\n        }\r\n        return this.hierarchyMenu();\r\n    }\r\n    return this.userMenu() ||\r\n        (this.parent && this.parent.userMenu());\r\n};\r\n\r\nMorph.prototype.hierarchyMenu = function () {\r\n    var parents = this.allParents(),\r\n        world = this.world instanceof Function ? this.world() : this.world,\r\n        menu = new MenuMorph(this, null);\r\n\r\n    parents.forEach(each => {\r\n        if (each.developersMenu && (each !== world)) {\r\n            menu.addMenu(\r\n                each.toString().slice(0, 50),\r\n                each.developersMenu()\r\n            );\r\n        }\r\n    });\r\n    return menu;\r\n};\r\n\r\nMorph.prototype.developersMenu = function () {\r\n    // 'name' is not an official property of a function, hence:\r\n    var world = this.world instanceof Function ? this.world() : this.world,\r\n        userMenu = this.userMenu() ||\r\n            (this.parent && this.parent.userMenu()),\r\n        menu = new MenuMorph(this, this.constructor.name ||\r\n            this.constructor.toString().split(' ')[1].split('(')[0]);\r\n    if (userMenu) {\r\n        menu.addMenu('user features', userMenu);\r\n        menu.addLine();\r\n    }\r\n    menu.addItem(\r\n        \"color...\",\r\n        () => {\r\n            this.pickColor(\r\n                menu.title + localize('\\ncolor:'),\r\n                this.setColor,\r\n                this,\r\n                this.color\r\n            );\r\n        },\r\n        'choose another color \\nfor this morph'\r\n    );\r\n    menu.addItem(\r\n        \"transparency...\",\r\n        () => {\r\n            this.prompt(\r\n                menu.title + localize('\\nalpha\\nvalue:'),\r\n                this.setAlphaScaled,\r\n                this,\r\n                (this.alpha * 100).toString(),\r\n                null,\r\n                1,\r\n                100,\r\n                true\r\n            );\r\n        },\r\n        'set this morph\\'s\\nalpha value'\r\n    );\r\n    menu.addItem(\r\n        \"resize...\",\r\n        'resize": [
+      "src\\morphic.js"
+    ],
+    "show a handle\\nwhich can be dragged\\nto change this morph\\'s": [
+      "src\\morphic.js"
+    ],
+    "what\\'s your name?": [
+      "src\\objects.js"
+    ],
+    "development mode \\ndebugging primitives:": [
+      "src\\objects.js"
+    ],
+    "Costume": [
+      "src\\objects.js",
+      "src\\threads.js"
+    ],
+    "unable to inherit\\n(disabled or circular?)": [
+      "src\\objects.js"
+    ],
+    "Please make sure your web browser is up to date\\n' +\r\n                'and your camera is properly configured. \\n\\n' +\r\n                'Some browsers also require you to access Snap!\\n' +\r\n                'through HTTPS to use the camera.\\n\\n' +\r\n                'Please replace the \"http://\" part of the address\\n' +\r\n                'in your browser by \"https://\" and try again.": [
+      "src\\objects.js"
+    ],
+    "Stage selected:\\nno motion primitives": [
+      "src\\objects.js"
+    ],
+    "Background": [
+      "src\\objects.js"
+    ],
+    "Snap! can only import \"text\" files. ' +\r\n                        'You selected a file of type \"' +\r\n                        ftype +\r\n                        '\".": [
+      "src\\objects.js"
+    ],
+    "Open anyway?": [
+      "src\\objects.js",
+      "libraries\\SciSnap3Extensions.js"
+    ],
+    "stop": [
+      "src\\objects.js"
+    ],
+    "export as CSV...": [
+      "src\\objects.js"
+    ],
+    "export as JSON...": [
+      "src\\objects.js"
+    ],
+    "parse": [
+      "src\\objects.js"
+    ],
+    "Variable exists": [
+      "src\\objects.js"
+    ],
+    "A variable with this name already exists.": [
+      "src\\objects.js"
+    ],
+    "Edge color\\n(left click)": [
+      "src\\sketch.js"
+    ],
+    "Fill color\\n(right click)": [
+      "src\\sketch.js"
+    ],
+    "a variable of name": [
+      "src\\threads.js"
+    ],
+    "does not exist in this context": [
+      "src\\threads.js"
+    ],
+    "CSV": [
+      "src\\threads.js"
+    ],
+    "JSON": [
+      "src\\threads.js"
+    ],
+    "cannot send media,\\nsprites or procedures\\nto another scene": [
+      "src\\threads.js",
+      "src\\threads.js"
+    ],
+    "unable to nest\\n(disabled or circular?)": [
+      "src\\threads.js"
+    ],
+    "there are currently no\\nvectorizable pen trail segments": [
+      "src\\threads.js"
+    ],
+    "C": [
+      "src\\widgets.js"
+    ],
+    "Snap! can only import \"text\" files.\\n' + 'You selected a file of type \"' + ftype + '\".": [
+      "libraries\\SciSnap3Extensions.js"
+    ],
+    "SciSnap! manual": [
+      "libraries\\SciSnap3Extensions.js"
+    ],
+    "SciSnap! Handbuch": [
+      "libraries\\SciSnap3Extensions.js"
+    ],
+    "Connection closed.": [
+      "libraries\\s4aConn\\s4aConn.js"
+    ],
+    "Escape microworld": [
+      "libraries\\microworlds\\microworld.js"
+    ],
+    "Enter microworld": [
+      "libraries\\microworlds\\microworld.js"
+    ],
+    "render": [
+      "libraries\\beetle\\beetle.js"
+    ]
+  }
+}
