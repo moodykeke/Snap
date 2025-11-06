@@ -1,0 +1,830 @@
+{
+  "baselineCount": 7,
+  "languages": {
+    "ar": {
+      "missingCount": 4,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "settings menu prefer empty slots hint",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "العربية",
+        "language_translator": "طارق جلال",
+        "last_changed": "2016-02-24"
+      }
+    },
+    "bg": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Български",
+        "language_translator": "Ivan Savov",
+        "last_changed": "2015-11-16"
+      }
+    },
+    "bn": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "বাংলা",
+        "language_translator": "Dr. Mokter Hossain, Radman Siddiki",
+        "last_changed": "2020-07-04"
+      }
+    },
+    "ca": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Català",
+        "language_translator": "Joan Guillén i Pelegay, Bernat Romagosa Carrasquer",
+        "last_changed": "2025-05-15"
+      }
+    },
+    "ca_VA": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Català - Valencià",
+        "language_translator": "Bernat Romagosa Carrasquer, Joan Guillén i Pelegay, Pilar Embid",
+        "last_changed": "2018-02-08"
+      }
+    },
+    "cs": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Česky",
+        "language_translator": "Michal Moc, Jan Tomsa",
+        "last_changed": "2015-11-16"
+      }
+    },
+    "de": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Deutsch",
+        "language_translator": "Jens Mönig, Jadga Hügle",
+        "last_changed": "2025-11-05"
+      }
+    },
+    "dk": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Dansk",
+        "language_translator": "FAB, Pelle Hjek",
+        "last_changed": "2016-11-16"
+      }
+    },
+    "el": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Ελληνικά",
+        "language_translator": "Ino Samaras, Alexandros Prekates, HM100",
+        "last_changed": "2025-01-23"
+      }
+    },
+    "en": {
+      "missingCount": 0,
+      "sameAsEnglishCount": 7,
+      "placeholderMismatchCount": 0,
+      "missing": [],
+      "sameAsEnglish": [
+        "__shout__go__",
+        "file menu import hint",
+        "settings menu prefer empty slots hint",
+        "costumes tab help",
+        "block deletion dialog text",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "English",
+        "language_translator": "Jens Mönig",
+        "last_changed": "2023-02-15"
+      }
+    },
+    "eo": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Esperanto",
+        "language_translator": "Sebastian Cyprych",
+        "last_changed": "2017-10-01"
+      }
+    },
+    "es": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Español",
+        "language_translator": "Víctor Manuel Muratalla Morales / Cristián Rizzi Iribarren / Alfonso Ruzafa / David Martín",
+        "last_changed": "2025-05-05"
+      }
+    },
+    "et": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Eesti",
+        "language_translator": "Hasso Tepper",
+        "last_changed": "2016-05-03"
+      }
+    },
+    "eu": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Euskara",
+        "language_translator": "Asier Iturralde Sarasola",
+        "last_changed": "2018-06-26"
+      }
+    },
+    "fi": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "suomi",
+        "language_translator": "Jouni K. Seppänen",
+        "last_changed": "2014-04-18"
+      }
+    },
+    "fr": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Français",
+        "language_translator": "Jean-Jacques Valliet, Mark Rafter, Martin Quinson, Damien Caselli",
+        "last_changed": "2020-10-28"
+      }
+    },
+    "gl": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Galego",
+        "language_translator": "tecnoloxia <2016>,Miguel A. Bouzada <2019>",
+        "last_changed": "2019-07-29"
+      }
+    },
+    "he": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "עברית",
+        "language_translator": "יוסי כהן",
+        "last_changed": "2020-04-21"
+      }
+    },
+    "hi": {
+      "missingCount": 6,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "file menu import hint",
+        "settings menu prefer empty slots hint",
+        "block deletion dialog text",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "हिंदी",
+        "language_translator": "Barthdry",
+        "last_changed": "2021-05-08"
+      }
+    },
+    "hr": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Hrvatski",
+        "language_translator": "Željko Hrvoj",
+        "last_changed": "2017-08-15"
+      }
+    },
+    "hu": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 1,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [
+        {
+          "key": "__shout__go__",
+          "en": {
+            "underscore": 0,
+            "angleRefs": 0
+          },
+          "tr": {
+            "underscore": 6,
+            "angleRefs": 0
+          }
+        }
+      ],
+      "meta": {
+        "language_name": "Magyar",
+        "language_translator": "Makány György, Faragó Attila",
+        "last_changed": "2022-01-25"
+      }
+    },
+    "hy": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 1,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [
+        {
+          "key": "__shout__go__",
+          "en": {
+            "underscore": 0,
+            "angleRefs": 0
+          },
+          "tr": {
+            "underscore": 6,
+            "angleRefs": 0
+          }
+        }
+      ],
+      "meta": {
+        "language_name": "Հայերեն",
+        "language_translator": "Symotec LLC, Armath team and Antrohoos Education Foundation",
+        "last_changed": "2025-03-13"
+      }
+    },
+    "ia": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Interlingua",
+        "language_translator": "Ken Dickey",
+        "last_changed": "2015-08-09"
+      }
+    },
+    "id": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Bahasa Indonesia",
+        "language_translator": "Alexander Raphael Liu, Emmanuella Rumanti",
+        "last_changed": "2019-01-21"
+      }
+    },
+    "it": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Italiano",
+        "language_translator": "Stefano Federici, Alberto Firpo, Massimo Ghisalberti",
+        "last_changed": "2023-11-04"
+      }
+    },
+    "ja": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "日本語",
+        "language_translator": "Kazuhiro Abe",
+        "last_changed": "2024-12-12"
+      }
+    },
+    "ja_HIRA": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "にほんご",
+        "language_translator": "Kazuhiro Abe",
+        "last_changed": "2024-12-09"
+      }
+    },
+    "kn": {
+      "missingCount": 4,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "settings menu prefer empty slots hint",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "ಕನ್ನಡ",
+        "language_translator": "Vinayakumar R",
+        "last_changed": "2014-12-02"
+      }
+    },
+    "ko": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "한국어",
+        "language_translator": "Yunjae Jang",
+        "last_changed": "2015-01-21"
+      }
+    },
+    "ml": {
+      "missingCount": 5,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "settings menu prefer empty slots hint",
+        "block deletion dialog text",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Malayalam",
+        "language_translator": "vinayakumar R",
+        "last_changed": "2015-02-20"
+      }
+    },
+    "nl": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Nederlands",
+        "language_translator": "Joek van Montfort, Sjoerd Dirk Meijer, Frank Sierens, Jan-Gerard van der Toorn, Jule Rapp, Nykki Rusticus",
+        "last_changed": "2024-04-15"
+      }
+    },
+    "no": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Norsk",
+        "language_translator": "Olav A Marschall",
+        "last_changed": "2020-08-19"
+      }
+    },
+    "pl": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Polski",
+        "language_translator": "Witek Kranas & deKrain & Andrzej Batorski & P1neF0rest935",
+        "last_changed": "2024-08-23"
+      }
+    },
+    "pt": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Português",
+        "language_translator": "Manuel Menezes de Sequeira",
+        "last_changed": "2020-08-03"
+      }
+    },
+    "pt_BR": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Português do Brasil",
+        "language_translator": "Aldo von Wangenheim, Cassiano D'Andrea, Artur Arnhold-Müller",
+        "last_changed": "2023-01-25"
+      }
+    },
+    "ro": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Român",
+        "language_translator": "Cristian Macarascu",
+        "last_changed": "2015-10-24"
+      }
+    },
+    "ru": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Русский",
+        "language_translator": "Svetlana Ptashnaya, Проскурнёв Артём, Pavel Belousov",
+        "last_changed": "2020-12-22"
+      }
+    },
+    "si": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Slovenščina",
+        "language_translator": "Sasa Divjak, Gorazd Breskvar",
+        "last_changed": "2016-04-22"
+      }
+    },
+    "sk": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Slovenčina",
+        "language_translator": "Peter Lukačovič",
+        "last_changed": "2019-12-10"
+      }
+    },
+    "sv": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "svenska",
+        "language_translator": "Erik A. Olsson",
+        "last_changed": "2016-06-09"
+      }
+    },
+    "ta": {
+      "missingCount": 5,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "settings menu prefer empty slots hint",
+        "block deletion dialog text",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Tamil",
+        "language_translator": "vinayakumar R, Barthdry",
+        "last_changed": "2021-01-25"
+      }
+    },
+    "te": {
+      "missingCount": 5,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "settings menu prefer empty slots hint",
+        "block deletion dialog text",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Telagu",
+        "language_translator": "vinayakumar R",
+        "last_changed": "2015-02-20"
+      }
+    },
+    "ti": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "ትግርኛ",
+        "language_translator": "ተስፋልደት ነጋሽ እያሱ, ሄራን ተወልደ ስዩም",
+        "last_changed": "2024-03-25"
+      }
+    },
+    "tr": {
+      "missingCount": 2,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Türkçe",
+        "language_translator": "Turgut Güneysu, Hakan Atas",
+        "last_changed": "2021-01-26"
+      }
+    },
+    "ua": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "Українська",
+        "language_translator": "Serhiy Kryzhanovsky",
+        "last_changed": "2024-06-04"
+      }
+    },
+    "zh_CN": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "简体中文",
+        "language_translator": "五百刀/邓江华/孟锡峰/曹儒林/moodykeke",
+        "last_changed": "2024-12-09"
+      }
+    },
+    "zh_TW": {
+      "missingCount": 3,
+      "sameAsEnglishCount": 0,
+      "placeholderMismatchCount": 0,
+      "missing": [
+        "__shout__go__",
+        "download to disk text",
+        "unable to export text"
+      ],
+      "sameAsEnglish": [],
+      "placeholderMismatches": [],
+      "meta": {
+        "language_name": "繁體中文",
+        "language_translator": "cch",
+        "last_changed": "2013-8-14"
+      }
+    }
+  }
+}
