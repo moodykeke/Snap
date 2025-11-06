@@ -9113,6 +9113,23 @@ IDE_Morph.prototype.warnAboutDev = function () {
         return;
     }
     if (this.devWarned) { return; }
+    // postpone if target language is non-English or dictionary not yet ready
+    var hash = location.hash || '',
+        desiredLang = null,
+        lang = SnapTranslator.language || 'en',
+        dictReady = SnapTranslator.dict[lang] &&
+            Object.prototype.hasOwnProperty.call(
+                SnapTranslator.dict[lang],
+                'CAUTION! Development Version'
+            );
+    if (hash.substr(0, 6) === '#lang:') {
+        desiredLang = hash.charAt(8) === '_' ? hash.slice(6, 11) : hash.slice(6, 8);
+    }
+    desiredLang = this.cloud.parseDict(hash).lang || desiredLang || this.userLanguage;
+    if ((lang === 'en' && desiredLang && desiredLang !== 'en') || !dictReady) {
+        this.devWarningPending = true;
+        return;
+    }
     this.inform(
         localize("CAUTION! Development Version"),
         localize(
