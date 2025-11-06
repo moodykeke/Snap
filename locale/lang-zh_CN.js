@@ -1580,6 +1580,8 @@ SnapTranslator.dict.zh_CN = { ...SnapTranslator.dict.zh_CN,
     "__shout__go__": "",
     "download to disk text": "",
     "unable to export text": "",
+    "CAUTION! Development Version": "注意！开发版本",
+    "This version of Snap! is being developed.\n*** It is NOT supported for end users. ***\nSaving a project in THIS version is likely to\nmake it UNUSABLE or DEFECTIVE for current and\neven future official versions!\n\nvisit https://snap.berkeley.edu/run\nfor the official Snap! installation.": "当前 Snap! 处于开发版本。\n*** 本版本不面向终端用户。***\n在此版本中保存的项目很可能\n无法在当前或未来的正式版本中正常使用或会出现缺陷！\n\n请访问 https://snap.berkeley.edu/run\n获取官方 Snap! 安装与运行入口。",
 };
 
 // applied from utilities/i18n/candidates.zh_CN.json on 2025-11-06T00:36:52.636Z

@@ -1560,8 +1560,11 @@ DialogBoxMorph.prototype.inform = function (
     world,
     pic
 ) {
-    var txt = new TextMorph(
-        textString,
+    // localize title and message if possible
+    var localizedTitle = (typeof title === 'string') ? localize(title) : title,
+        localizedText = (typeof textString === 'string') ? localize(textString) : textString,
+        txt = new TextMorph(
+        localizedText,
         this.fontSize,
         this.fontStyle,
         true,
@@ -1574,14 +1577,14 @@ DialogBoxMorph.prototype.inform = function (
     );
 
     if (!this.key) {
-        this.key = 'inform' + title + textString;
+        this.key = 'inform' + localizedTitle + localizedText;
     }
 
     txt.enableLinks = true; // let the user click on URLs to open in new tab
-    this.labelString = title;
+    this.labelString = localizedTitle;
     this.createLabel();
     if (pic) {this.setPicture(pic); }
-    if (textString) {
+    if (localizedText) {
         this.addBody(txt);
     }
     this.addButton('ok', 'OK');
