@@ -1575,9 +1575,3 @@ SnapTranslator.dict.zh_CN = { ...SnapTranslator.dict.zh_CN,
     "your own": "你自己",
     "z": "z"
 };
-
-SnapTranslator.dict.zh_CN = { ...SnapTranslator.dict.zh_CN,
-    "__shout__go__": "",
-    "download to disk text": "",
-    "unable to export text": "",
-};
