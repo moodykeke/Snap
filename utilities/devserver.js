@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const root = path.resolve(__dirname, '..', '..');
+// project root: one level up from utilities directory
+const root = path.resolve(__dirname, '..');
 const port = process.env.PORT || 8080;
 
 const MIME = {
@@ -23,22 +24,41 @@ const MIME = {
 };
 
 function serve(req, res) {
-  const parsed = url.parse(req.url);
-  let pathname = decodeURIComponent(parsed.pathname);
+  const parsed = url.parse(req.url || '/');
+  let pathname = decodeURIComponent(parsed.pathname || '/');
+  console.log(`[REQ] ${req.method} ${pathname}`);
+  // default route
   if (pathname === '/') {
-    pathname = '/snap.html';
+    pathname = 'snap.html';
   }
-  const filePath = path.join(root, pathname);
+  // strip leading slashes to ensure proper join on Windows
+  pathname = pathname.replace(/^\/+/, '');
+  let filePath = path.join(root, pathname);
+  console.log(`[MAP] -> ${filePath}`);
   fs.stat(filePath, (err, stat) => {
+    // fallback to snap.html if requested path missing
     if (err) {
-      res.statusCode = 404;
-      res.end('Not found');
+      const fallback = path.join(root, 'snap.html');
+      fs.stat(fallback, (e2, s2) => {
+        if (e2 || !s2 || !s2.isFile()) {
+          res.statusCode = 404;
+          res.end('Not found');
+          console.warn(`[404] ${pathname}`);
+          return;
+        }
+        fs.readFile(fallback, (e3, data) => {
+          if (e3) { res.statusCode = 500; res.end('Error'); return; }
+          res.setHeader('Content-Type', MIME['.html']);
+          res.end(data);
+          console.log(`[FALLBACK] -> snap.html`);
+        });
+      });
       return;
     }
     if (stat.isDirectory()) {
       const index = path.join(filePath, 'index.html');
       fs.readFile(index, (err2, data) => {
-        if (err2) { res.statusCode = 404; res.end('Not found'); return; }
+        if (err2) { res.statusCode = 404; res.end('Not found'); console.warn(`[404] dir index ${index}`); return; }
         res.setHeader('Content-Type', MIME['.html']);
         res.end(data);
       });
@@ -47,9 +67,10 @@ function serve(req, res) {
     const ext = path.extname(filePath).toLowerCase();
     const mime = MIME[ext] || 'application/octet-stream';
     fs.readFile(filePath, (err3, data) => {
-      if (err3) { res.statusCode = 500; res.end('Error'); return; }
+      if (err3) { res.statusCode = 500; res.end('Error'); console.error(`[500] read ${filePath}: ${err3}`); return; }
       res.setHeader('Content-Type', mime);
       res.end(data);
+      console.log(`[200] ${filePath} (${mime})`);
     });
   });
 }
