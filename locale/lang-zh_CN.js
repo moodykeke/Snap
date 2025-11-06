@@ -1741,3 +1741,11 @@ SnapTranslator.dict.zh_CN = { ...SnapTranslator.dict.zh_CN,
     "Enter microworld": "Enter microworld",
     "render": "render",
 };
+
+SnapTranslator.dict.zh_CN = { ...SnapTranslator.dict.zh_CN,
+    "Dynamic scheduling": "动态调度",
+    "uncheck to schedule\nthreads framewise": "取消勾选后以逐帧方式调度线程",
+    "check to quickstep\nthreads atomically": "勾选后以原子快速步进方式调度线程",
+    "Performer mode scale...": "演示模式缩放...",
+    "specify the scale of the stage\npixels in performer mode": "设置演示模式下舞台像素缩放比例",
+};
