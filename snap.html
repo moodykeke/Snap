@@ -37,11 +37,6 @@
         <script src="src/embroider.js?version=2024-05-09"></script>
         <script src="src/sha512.js?version=2019-06-27"></script>
         <script src="src/FileSaver.min.js?version=2019-06-27"></script>
-        <!-- Embedded paint bridge (PaperAdapter) will be loaded dynamically after IDE init -->
-        <script>
-            // Enable embedded paint editor integration
-            window.useEmbeddedPaint = true;
-        </script>
         <script>
             var world;
             window.onload = function () {
@@ -66,13 +61,6 @@
                 }
                 world = new WorldMorph(document.getElementById('world'));
                 new IDE_Morph().openIn(world);
-                // load embedded paint adapter dynamically to avoid early module interference
-                (function(){
-                    var s = document.createElement('script');
-                    s.src = 'src/paint-adapter.js?version=2025-11-05';
-                    s.defer = true;
-                    document.head.appendChild(s);
-                })();
                 requestAnimationFrame(loop);
             };
         </script>
@@ -80,16 +68,4 @@
     <body style="margin: 0;">
         <canvas id="world" tabindex="1" style="position: absolute;"></canvas>
 </body>
-<script>
-// 动态加载 paint-adapter（惰性钩子，未加载不影响UI）
-(function(){
-  try {
-    var s = document.createElement('script');
-    s.src = 'src/paint-adapter.js';
-    s.defer = true;
-    s.onload = function(){ console.log('[snap] paint-adapter loaded'); };
-    (document.head || document.body).appendChild(s);
-  } catch (e) { /* no-op */ }
-})();
-</script>
 </html>
