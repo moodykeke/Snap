@@ -707,11 +707,17 @@ VectorPolygon.prototype.containsPoint = function (aPoint) {
 
 VectorPolygon.prototype.update = function (newPoint, constrain) {
     if (this.isFreeHand || this.points.length === 1) {
-        this.points.push(newPoint);
-    } else if (!this.isFreeHand) {
+        // 点采样优化：仅当光标移动达到最小距离时才追加，减少抖动。
+        var last = this.points[this.points.length - 1];
+        var minDist = Math.max(1, (this.borderWidth || 1) / 2);
+        if (!last || last.distanceTo(newPoint) >= minDist) {
+            this.points.push(newPoint);
+        } else {
+            this.points[this.points.length - 1] = newPoint;
+        }
+    } else {
         if (constrain) {
-            // we reuse origin to store the previous point and perform the
-            // constraint calculations as if we were drawing a single line
+            // 复用 origin 存储前一锚点，套用直线工具的约束逻辑
             this.origin = this.points[this.points.length - 2];
             newPoint = VectorLine.prototype.constraintPoint.call(
                 this,
@@ -755,13 +761,28 @@ VectorPolygon.prototype.asSVG = function () {
     svg.attributes['stroke-linejoin'] = 'round';
     svg.attributes['stroke-linecap'] = 'round';
 
-    // M stands for MoveTo and defines the starting point
-    svg.attributes.d = 'M' + this.points[0].x + ' ' + this.points[0].y;
+    var points = this.points;
+    // 起始点
+    svg.attributes.d = 'M' + points[0].x + ' ' + points[0].y;
 
-    // L stands for LineTo and defines the rest of the points
-    this.points.slice(1).forEach(function (point) {
-        svg.attributes.d += ' L ' + point.x + ' ' + point.y;
-    });
+    if (this.isFreeHand && points.length > 2) {
+        // 自由笔使用 Q 二次曲线段更平滑
+        var i;
+        for (i = 1; i < points.length - 1; i += 1) {
+            var ctrl = points[i];
+            var endX = (points[i].x + points[i + 1].x) / 2;
+            var endY = (points[i].y + points[i + 1].y) / 2;
+            svg.attributes.d += ' Q ' + ctrl.x + ' ' + ctrl.y + ' ' +
+                Math.round(endX) + ' ' + Math.round(endY);
+        }
+        // 末段直连到最后一个点，避免丢尾
+        svg.attributes.d += ' L ' + points[points.length - 1].x + ' ' +
+            points[points.length - 1].y;
+    } else {
+        points.slice(1).forEach(function (point) {
+            svg.attributes.d += ' L ' + point.x + ' ' + point.y;
+        });
+    }
 
     return svg;
 };
@@ -784,9 +805,26 @@ VectorPolygon.prototype.drawOn = function (aCanvasMorph) {
     context.beginPath();
     context.moveTo(points[0].x, points[0].y);
 
-    points.slice(1).forEach(function (point) {
-        context.lineTo(point.x, point.y);
-    });
+    if (this.isFreeHand && points.length > 2) {
+        // 使用二次贝塞尔在中点之间连接，实现自由笔平滑
+        var i;
+        for (i = 1; i < points.length - 1; i += 1) {
+            var midX = (points[i].x + points[i + 1].x) / 2;
+            var midY = (points[i].y + points[i + 1].y) / 2;
+            context.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+        }
+        context.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        if (this.isClosed) {
+            context.closePath();
+        }
+    } else {
+        points.slice(1).forEach(function (point) {
+            context.lineTo(point.x, point.y);
+        });
+        if (this.isClosed) {
+            context.closePath();
+        }
+    }
 
     if (this.fillColor && this.fillColor.a > 0) {
         context.fillStyle = this.fillColor.toRGBstring();
