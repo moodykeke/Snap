@@ -13656,20 +13656,43 @@ SVG_Costume.prototype.parseShapes = function () {
 
     element.parseString(contents);
 
-    if (this.shapes.length === 0 && element.attributes.snap) {
-        this.shapes = element.children.map(child =>
-            window[child.attributes.prototype].fromSVG(child)
-        );
+    if (this.shapes.length === 0) {
+        this.shapes = element.children.map(function (child) {
+            var protoName = child.attributes && child.attributes.prototype,
+                ctor = null;
+
+            // prefer explicit prototype mapping
+            if (protoName && window[protoName] && typeof window[protoName].fromSVG === 'function') {
+                ctor = window[protoName];
+            } else {
+                // fallback based on tag name
+                switch (child.tag) {
+                    case 'rect': ctor = VectorRectangle; break;
+                    case 'line': ctor = VectorLine; break;
+                    case 'ellipse': ctor = VectorEllipse; break;
+                    case 'path': ctor = VectorPolygon; break;
+                    case 'text': ctor = VectorText; break;
+                    // ignore unknowns
+                }
+            }
+
+            if (ctor && typeof ctor.fromSVG === 'function') {
+                try { return ctor.fromSVG(child); } catch (e) { return null; }
+            }
+            return null;
+        }).filter(Boolean);
     }
 };
 
 SVG_Costume.prototype.edit = function (
-	aWorld,
+    aWorld,
     anIDE,
     isnew,
     oncancel,
     onsubmit
 ) {
+    // 保持原有矢量编辑器为默认，不自动跳转到嵌入原型页。
+
     var editor = new VectorPaintEditorMorph(),
         myself = this;
 
@@ -13694,6 +13717,88 @@ SVG_Costume.prototype.edit = function (
         anIDE,
         this.shapes || []
     );
+};
+
+// 替补矢量编辑器接入（嵌入原型页）
+// 使用 PaperAdapterBridge 打开原型编辑器，提交后写入 contents 与 rotationCenter。
+SVG_Costume.prototype.editAlt = function (aWorld, anIDE, isnew, oncancel, onsubmit) {
+    var myself = this;
+    if (window.PaperAdapterBridge && window.PaperAdapterBridge.openEmbeddedEditor) {
+        var svgString = null;
+        try {
+            if (myself.contents && myself.contents.src) {
+                svgString = myself.contents.src.replace(/^data:image\/.*?, */, '');
+                if (svgString.indexOf('base64') > -1) {
+                    svgString = atob(svgString);
+                }
+            }
+        } catch (e) { svgString = null; }
+
+        window.PaperAdapterBridge.openEmbeddedEditor({
+            svg: svgString,
+            center: { x: myself.rotationCenter.x, y: myself.rotationCenter.y },
+            size: anIDE && anIDE.stage ? { width: anIDE.stage.dimensions.x, height: anIDE.stage.dimensions.y } : null,
+            theme: anIDE ? {
+                frameColor: anIDE.frameColor && anIDE.frameColor.toString ? anIDE.frameColor.toString() : '#eee',
+                buttonColor: anIDE.buttonColor && anIDE.buttonColor.toString ? anIDE.buttonColor.toString() : '#fff',
+                buttonInk: anIDE.buttonContrast ? '#000' : '#222',
+                titleBarColor: DialogBoxMorph.prototype.titleBarColor && DialogBoxMorph.prototype.titleBarColor.toString ? DialogBoxMorph.prototype.titleBarColor.toString() : '#6fa8dc',
+                titleTextColor: DialogBoxMorph.prototype.titleTextColor || '#fff',
+                backgroundColor: anIDE.backgroundColor && anIDE.backgroundColor.toString ? anIDE.backgroundColor.toString() : '#f6f7f9',
+                groupColor: anIDE.groupColor && anIDE.groupColor.toString ? anIDE.groupColor.toString() : '#fafbfc'
+            } : null,
+            onSubmit: function (svgString, center, kind, pngDataUrl) {
+                try {
+                    if (kind === 'bitmap' && pngDataUrl) {
+                        var imgBmp = new Image();
+                        imgBmp.src = /^data:image\/png/.test(pngDataUrl) ? pngDataUrl : ('data:image/png;base64,' + pngDataUrl);
+                        var newCos = new Costume(
+                            imgBmp,
+                            (anIDE ? anIDE.currentSprite.newCostumeName(localize('Untitled')) : localize('Untitled')),
+                            new Point(center && center.x || myself.rotationCenter.x, center && center.y || myself.rotationCenter.y)
+                        );
+                        aWorld.changed();
+                        if (anIDE) {
+                            if (isnew) { anIDE.currentSprite.addCostume(newCos); }
+                            else { anIDE.currentSprite.addCostume(newCos); }
+                            anIDE.currentSprite.wearCostume(newCos);
+                            anIDE.hasChangedMedia = true;
+                        }
+                        (onsubmit || nop)();
+                        return;
+                    }
+            var img = new Image();
+            // 使用 UTF-8 安全的编码方式，避免包含中文/特殊字符时 btoa 报错或渲染失败
+            try {
+                var encoded = encodeURIComponent(svgString);
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encoded;
+            } catch (e) {
+                // 回退到 base64（带 UTF-8 转义），尽量兼容旧浏览器
+                var b64;
+                try { b64 = (window.btoa ? window.btoa(unescape(encodeURIComponent(svgString))) : svgString); }
+                catch (_) { b64 = svgString; }
+                img.src = 'data:image/svg+xml;base64,' + b64;
+            }
+            myself.contents = img;
+            if (center && typeof center.x === 'number' && typeof center.y === 'number') {
+                myself.rotationCenter = new Point(center.x, center.y);
+            }
+            myself.version = Date.now();
+                    aWorld.changed();
+                    if (anIDE) {
+                        if (isnew) {anIDE.currentSprite.addCostume(myself); }
+                        anIDE.currentSprite.wearCostume(myself);
+                        anIDE.hasChangedMedia = true;
+                    }
+                    (onsubmit || nop)();
+                } catch (e) { (oncancel || nop)(); }
+            },
+            onCancel: oncancel || nop
+        });
+    } else {
+        // 回退到默认编辑器
+        this.edit(aWorld, anIDE, isnew, oncancel, onsubmit);
+    }
 };
 
 // SVG_Costume pixel access

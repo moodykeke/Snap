@@ -77,6 +77,7 @@ var VectorPolygon;
 var VectorSelection;
 var VectorPaintEditorMorph;
 var VectorPaintCanvasMorph;
+var VectorText;
 
 // VectorShape
 
@@ -808,6 +809,119 @@ VectorPolygon.prototype.drawOn = function (aCanvasMorph) {
     aCanvasMorph.redraw = true;
 };
 
+
+// VectorText
+
+VectorText.prototype = new VectorShape();
+VectorText.prototype.constructor = VectorText;
+VectorText.uber = VectorShape.prototype;
+
+function VectorText (
+    borderWidth,
+    borderColor,
+    fillColor,
+    text,
+    position,
+    fontFamily,
+    fontSize,
+    textAnchor
+) {
+    VectorText.uber.init.call(this, borderWidth, borderColor, fillColor);
+    this.init(text, position, fontFamily, fontSize, textAnchor);
+}
+
+VectorText.prototype.init = function (text, position, fontFamily, fontSize, textAnchor) {
+    this.text = text || '';
+    this.position = position || new Point();
+    this.fontFamily = fontFamily || 'Arial';
+    this.fontSize = fontSize || 18;
+    this.textAnchor = textAnchor || 'start'; // start | middle | end
+
+    // map to origin/destination for bounds()
+    this.origin = this.position.copy();
+    // rough width estimate; refined on draw
+    var approxWidth = Math.max(1, this.text.length) * this.fontSize * 0.6;
+    this.destination = this.origin.add(new Point(approxWidth, this.fontSize));
+};
+
+VectorText.fromSVG = function (svg) {
+    var a = svg.attributes,
+        text = svg.contents || '';
+
+    return new VectorText(
+        parseInt(a['stroke-width']) || 0,
+        a.stroke === 'none' || !a.stroke ? new Color(0,0,0,0) : Color.fromString(a.stroke),
+        a.fill === 'none' || !a.fill ? new Color(0,0,0,0) : Color.fromString(a.fill),
+        text,
+        new Point(parseInt(a.x) || 0, parseInt(a.y) || 0),
+        a['font-family'] || 'Arial',
+        parseInt(a['font-size']) || 18,
+        a['text-anchor'] || 'start'
+    );
+};
+
+VectorText.prototype.copy = function () {
+    var nt = new VectorText(
+        this.borderWidth,
+        this.borderColor,
+        this.fillColor,
+        this.text,
+        this.origin.copy(),
+        this.fontFamily,
+        this.fontSize,
+        this.textAnchor
+    );
+    return VectorText.uber.copy.call(this, nt);
+};
+
+VectorText.prototype.toString = function () {
+    return VectorText.uber.toString.call(this) + ' "' + this.text + '"';
+};
+
+VectorText.prototype.asSVG = function () {
+    var svg = VectorText.uber.asSVG.call(this, 'text');
+    svg.attributes.x = this.origin.x;
+    svg.attributes.y = this.origin.y;
+    svg.attributes['font-family'] = this.fontFamily;
+    svg.attributes['font-size'] = this.fontSize;
+    svg.attributes['text-anchor'] = this.textAnchor;
+    svg.contents = this.text;
+    return svg;
+};
+
+VectorText.prototype.drawOn = function (aCanvasMorph) {
+    var context,
+        pos = this.origin.subtract(aCanvasMorph.position()),
+        align = this.textAnchor === 'middle' ? 'center' : (this.textAnchor === 'end' ? 'right' : 'left');
+
+    this.image = newCanvas(aCanvasMorph.extent());
+    context = this.image.getContext('2d');
+
+    context.font = this.fontSize + 'px ' + this.fontFamily;
+    context.textAlign = align;
+    context.textBaseline = 'alphabetic';
+
+    if (this.fillColor && this.fillColor.a > 0) {
+        context.fillStyle = this.fillColor.toRGBstring();
+        context.fillText(this.text, pos.x, pos.y);
+    }
+    if (this.borderColor && this.borderColor.a > 0) {
+        context.lineWidth = this.borderWidth || 1;
+        context.strokeStyle = this.borderColor.toRGBstring();
+        context.strokeText(this.text, pos.x, pos.y);
+    }
+
+    // refine destination using measured width
+    try {
+        var metrics = context.measureText(this.text);
+        var width = metrics.width || (Math.max(1, this.text.length) * this.fontSize * 0.6);
+        this.destination = this.origin.add(new Point(width, this.fontSize));
+    } catch (e) {
+        // fallback approximation already set in init
+    }
+
+    aCanvasMorph.redraw = true;
+};
 
 // VectorSelection
 

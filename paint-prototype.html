@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>画笔系统原型（Paper.js）</title>
+  <style>
+    :root {
+      --bg:#f6f7f9; --panel:#ffffff; --ink:#222; --ink-weak:#6b7280; --border:#e5e7eb; --accent:#6f61ef; --accent-ink:#fff;
+    }
+    body { margin: 0; font-family: system-ui, Arial, sans-serif; background: var(--bg); color: var(--ink); }
+    /* 主布局：左侧工具 + 画布 + 右侧标签面板 + 底部状态栏 */
+    #canvas-wrap { position: relative; height: 100vh; background: var(--panel); display: grid; grid-template-columns: 68px 1fr 340px; grid-template-rows: 1fr 26px; grid-template-areas: 'tools canvas right' 'status status status'; }
+    /* 左侧工具栏 */
+    #left-tools { grid-area: tools; border-right: 1px solid var(--border); background: var(--panel); display: grid; grid-auto-rows: 40px; place-items:center; padding-top: 8px; }
+    #left-tools button { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; font-size: 16px; color: var(--ink); }
+    #left-tools button.active { outline: 2px solid var(--accent); }
+    /* 画布区 */
+    #canvas-pane { grid-area: canvas; position: relative; background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/24px 24px; }
+    /* 让画布尺寸可精确控制为舞台尺寸（去掉 inset:0 以启用 JS 设置宽高）*/
+    #paper-canvas { position: absolute; left: 0; top: 0; display: block; }
+    #raster-canvas { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
+    /* 画布容器允许内容尺寸不等于容器时居左对齐（后续可居中） */
+    #canvas-pane { grid-area: canvas; position: relative; background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/24px 24px; overflow: auto; }
+    /* 右侧面板 */
+    #right-pane { grid-area: right; border-left: 1px solid var(--border); background: var(--panel); display: grid; grid-template-rows: 36px 1fr; }
+    #tabbar { display: flex; border-bottom: 1px solid var(--border); }
+    #tabbar button { height: 36px; flex: 1; border: 0; background: var(--panel); cursor: pointer; font-size: 12px; color: var(--ink); }
+    #tabbar button.active { background: #f0f2ff; color: var(--ink); border-bottom: 2px solid var(--accent); }
+    #panels { position: relative; overflow: auto; }
+    .panel { display: none; padding: 8px; }
+    .panel.active { display: block; }
+    /* Layers */
+    #layers .layer { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; }
+    /* Properties */
+    #properties .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    #properties input { height: 28px; }
+    /* Style */
+    #style .group { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+    #style label { font-size: 12px; color: var(--ink); }
+    /* Resources & Export */
+    #export-area { border: 1px solid var(--border); border-radius: 6px; background: var(--panel); display: flex; flex-direction: column; height: 240px; }
+    #export-area header { background: var(--panel); color: var(--ink); padding: 8px; font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border); }
+    #export-area textarea { flex: 1; resize: none; border: 0; padding: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; background: var(--panel); color: var(--ink); }
+    #export-buttons { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+    #export-buttons button { height: 28px; }
+    /* 状态栏 */
+    #statusbar { grid-area: status; border-top: 1px solid var(--border); background: var(--panel); font-size: 12px; color: var(--ink-weak); display: flex; align-items: center; gap: 12px; padding: 4px 10px; }
+  </style>
+  <script src="https://unpkg.com/paper@0.12.15/dist/paper-full.min.js"></script>
+</head>
+<body>
+  <div id="canvas-wrap">
+    <aside id="left-tools" aria-label="工具栏">
+      <button title="选择" data-tool="select">🖱️</button>
+      <button title="旋转中心" data-tool="crosshair">✚</button>
+      <button title="锚点" data-tool="subselect">✳️</button>
+      <button title="笔刷" data-tool="brush">🖌️</button>
+      <button title="橡皮" data-tool="eraser">🩹</button>
+      <button title="填充" data-tool="bucket">🪣</button>
+      <button title="文本" data-tool="text">T</button>
+      <button title="直线" data-tool="line">／</button>
+      <button title="矩形" data-tool="rectangle">▭</button>
+      <button title="椭圆" data-tool="ellipse">◯</button>
+      <button title="多边形" data-tool="polygon" disabled>⬠</button>
+    </aside>
+    <section id="canvas-pane">
+      <canvas id="paper-canvas" resize></canvas>
+      <canvas id="raster-canvas"></canvas>
+    </section>
+    <aside id="right-pane">
+      <div id="tabbar">
+        <button data-tab="layers" class="active">图层</button>
+        <button data-tab="properties">属性</button>
+        <button data-tab="style">样式</button>
+        <button data-tab="align">对齐</button>
+        <button data-tab="shapeops">形状</button>
+        <button data-tab="view">视图</button>
+        <button data-tab="resources">资源</button>
+        <button data-tab="mode">模式</button>
+        <button data-tab="export">导出</button>
+      </div>
+      <div id="panels">
+        <div id="layers" class="panel active">
+          <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button id="add-layer">新图层</button>
+            <button id="btn-delete">删除选中对象</button>
+            <button id="delete-layer" style="margin-left:auto">删除当前图层</button>
+          </div>
+          <div id="layer-list"></div>
+        </div>
+        <div id="properties" class="panel">
+          <div class="row">
+            <input placeholder="X" aria-label="x" />
+            <input placeholder="Y" aria-label="y" />
+          </div>
+          <div class="row" style="margin-top:8px">
+            <input placeholder="W" aria-label="w" />
+            <input placeholder="H" aria-label="h" />
+          </div>
+          <div class="row" style="margin-top:8px">
+            <input id="center-x" placeholder="中心X" aria-label="center-x" />
+            <input id="center-y" placeholder="中心Y" aria-label="center-y" />
+          </div>
+        </div>
+        <div id="style" class="panel">
+          <div class="group">
+            <label>Fill</label>
+            <input id="fill-color" type="color" value="#4f9cf7" />
+          </div>
+          <div class="group">
+            <label>Outline</label>
+            <input id="stroke-color" type="color" value="#333333" />
+          </div>
+          <div class="group">
+            <label>Width</label>
+            <input id="stroke-width" type="number" min="1" max="64" step="1" value="4" style="width:70px" />
+          </div>
+          <div class="group">
+            <label>端点</label>
+            <select id="cap-select">
+              <option value="butt">平</option>
+              <option value="round" selected>圆</option>
+              <option value="square">方</option>
+            </select>
+          </div>
+          <div class="group">
+            <label>拐角</label>
+            <select id="join-select">
+              <option value="miter" selected>斜</option>
+              <option value="round">圆</option>
+              <option value="bevel">斜切</option>
+            </select>
+          </div>
+          <div class="group">
+            <label>虚线</label>
+            <input id="dash-input" placeholder="6,4" style="width:90px" />
+          </div>
+          <div class="group">
+            <label>箭头</label>
+            <label><input type="checkbox" id="arrow-start"> 起</label>
+            <label><input type="checkbox" id="arrow-end" checked> 末</label>
+          </div>
+        </div>
+        <div id="align" class="panel">
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+            <button id="align-left">左对齐</button>
+            <button id="align-center-x">水平居中</button>
+            <button id="align-right">右对齐</button>
+            <button id="align-top">顶对齐</button>
+            <button id="align-center-y">垂直居中</button>
+            <button id="align-bottom">底对齐</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button id="distribute-h">水平等距</button>
+            <button id="distribute-v">垂直等距</button>
+          </div>
+        </div>
+        <div id="shapeops" class="panel">
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+            <button id="op-unite">合并</button>
+            <button id="op-intersect">相交</button>
+            <button id="op-subtract">相减</button>
+            <button id="op-exclude">排除</button>
+            <button id="op-simplify">简化</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button id="group">组合</button>
+            <button id="ungroup">取消组合</button>
+          </div>
+        </div>
+        <div id="view" class="panel">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label><input type="checkbox" id="snap-toggle"> 吸附到网格</label>
+            <label>网格尺寸 <input type="number" id="grid-size" min="2" max="100" step="2" value="24" style="width:70px"></label>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button id="zoom-in">放大</button>
+            <button id="zoom-out">缩小</button>
+            <button id="zoom-reset">重置缩放</button>
+          </div>
+        </div>
+        <div id="resources" class="panel">
+          <button id="import-svg">导入SVG</button>
+          <input id="file-input" type="file" accept="image/svg+xml" style="display:none" />
+          <button id="clear" style="margin-left:8px">清空画布</button>
+          <div style="margin-top:8px; display:flex; gap:8px;">
+            <button id="undo">撤销</button>
+            <button id="redo">重做</button>
+          </div>
+        </div>
+        <div id="export" class="panel">
+          <div id="export-area">
+            <header>导出（SVG/PNG）</header>
+            <div style="display:flex; gap:12px; padding:8px; border-bottom:1px solid var(--border);">
+              <div>
+                <label><input type="radio" name="exp-bounds" value="content" checked> 内容边界</label>
+              </div>
+              <div>
+                <label><input type="radio" name="exp-bounds" value="view"> 视图尺寸</label>
+              </div>
+              <div style="margin-left:auto">
+                <button id="btn-finish">完成并返回</button>
+              </div>
+            </div>
+            <textarea id="export-text" placeholder="点击下方按钮生成导出内容..."></textarea>
+            <div id="export-buttons">
+              <button id="export-svg">导出SVG</button>
+              <button id="export-png">导出PNG</button>
+              <a id="download-link" download="drawing.svg" style="margin-left:auto">下载</a>
+            </div>
+          </div>
+        </div>
+        <div id="mode" class="panel">
+          <div style="display:flex; gap:8px;">
+            <button id="mode-vector" class="active">矢量模式</button>
+            <button id="mode-bitmap">位图模式</button>
+          </div>
+          <p style="font-size:12px;color:var(--ink-weak);margin-top:8px;">矢量模式使用 Paper.js 进行路径编辑；位图模式提供基础画笔/橡皮并以 PNG 导出。</p>
+        </div>
+      </div>
+    </aside>
+    <div id="statusbar">坐标: — , 尺寸: — × — , 缩放: 100%</div>
+  </div>
+
+  <script>
+    // 初始化 Paper.js
+    const canvas = document.getElementById('paper-canvas');
+    const rasterCanvas = document.getElementById('raster-canvas');
+    paper.setup(canvas);
+
+    // 当前样式
+    const style = {
+      strokeColor: new paper.Color(document.getElementById('stroke-color').value),
+      fillColor: new paper.Color(document.getElementById('fill-color').value),
+      strokeWidth: parseInt(document.getElementById('stroke-width').value, 10) || 3,
+      strokeCap: document.getElementById('cap-select') ? document.getElementById('cap-select').value : 'round',
+      strokeJoin: document.getElementById('join-select') ? document.getElementById('join-select').value : 'miter',
+      dashArray: [],
+      arrowStart: document.getElementById('arrow-start') ? document.getElementById('arrow-start').checked : false,
+      arrowEnd: document.getElementById('arrow-end') ? document.getElementById('arrow-end').checked : false
+    };
+
+    function updateStyleFromUI() {
+      style.strokeColor = new paper.Color(document.getElementById('stroke-color').value);
+      style.fillColor = new paper.Color(document.getElementById('fill-color').value);
+      style.strokeWidth = parseInt(document.getElementById('stroke-width').value, 10) || 3;
+      style.strokeCap = document.getElementById('cap-select').value;
+      style.strokeJoin = document.getElementById('join-select').value;
+      const dashStr = document.getElementById('dash-input').value.trim();
+      style.dashArray = dashStr ? dashStr.split(',').map(s => parseFloat(s) || 0).filter(n => n > 0) : [];
+      style.arrowStart = document.getElementById('arrow-start').checked;
+      style.arrowEnd = document.getElementById('arrow-end').checked;
+    }
+
+    document.getElementById('stroke-color').addEventListener('input', updateStyleFromUI);
+    document.getElementById('fill-color').addEventListener('input', updateStyleFromUI);
+    document.getElementById('stroke-width').addEventListener('change', updateStyleFromUI);
+    document.getElementById('cap-select').addEventListener('change', updateStyleFromUI);
+    document.getElementById('join-select').addEventListener('change', updateStyleFromUI);
+    document.getElementById('dash-input').addEventListener('input', updateStyleFromUI);
+    document.getElementById('arrow-start').addEventListener('change', updateStyleFromUI);
+    document.getElementById('arrow-end').addEventListener('change', updateStyleFromUI);
+
+    // UI层与旋转中心
+    const uiLayer = new paper.Layer({ name: '__ui__' });
+    uiLayer.locked = true;
+    const defaultLayer = paper.project.layers[0];
+    if (defaultLayer) defaultLayer.activate();
+    let rotationCenter = paper.view.center.clone();
+    let showCrosshair = false; // 默认隐藏十字架
+    const cxInput = document.getElementById('center-x');
+    const cyInput = document.getElementById('center-y');
+    function drawCrosshair() {
+      if (!showCrosshair) return;
+      const prev = paper.project.activeLayer;
+      uiLayer.activate();
+      uiLayer.removeChildren();
+      const clr = new paper.Color('#6f61ef');
+      const v = new paper.Path.Line(new paper.Point(rotationCenter.x, 0), new paper.Point(rotationCenter.x, paper.view.size.height));
+      v.strokeColor = clr; v.dashArray = [6,4]; v.strokeWidth = 1;
+      const h = new paper.Path.Line(new paper.Point(0, rotationCenter.y), new paper.Point(paper.view.size.width, rotationCenter.y));
+      h.strokeColor = clr; h.dashArray = [6,4]; h.strokeWidth = 1;
+      const dot = new paper.Shape.Circle({ center: rotationCenter, radius: 5, strokeColor: clr });
+      prev.activate();
+    }
+    function setRotationCenter(p) {
+      rotationCenter = p;
+      if (cxInput) cxInput.value = Math.round(p.x);
+      if (cyInput) cyInput.value = Math.round(p.y);
+      drawCrosshair();
+    }
+    if (cxInput && cyInput) {
+      cxInput.addEventListener('change', () => setRotationCenter(new paper.Point(parseFloat(cxInput.value) || 0, rotationCenter.y)));
+      cyInput.addEventListener('change', () => setRotationCenter(new paper.Point(rotationCenter.x, parseFloat(cyInput.value) || 0)));
+    }
+    // 初始不绘制十字架，仅记录中心
+    setRotationCenter(rotationCenter);
+
+    // 历史堆栈（撤销/重做）
+    const history = [];
+    const redoStack = [];
+    function snapshot() {
+      return {
+        json: paper.project.exportJSON({ asString: true }),
+        rc: { x: rotationCenter.x, y: rotationCenter.y }
+      };
+    }
+    function restore(snap) {
+      if (!snap) return;
+      paper.project.clear();
+      paper.project.importJSON(snap.json);
+      setRotationCenter(new paper.Point(snap.rc.x, snap.rc.y));
+      renderLayers();
+      paper.view.update();
+    }
+    function pushHistory() { history.push(snapshot()); redoStack.length = 0; }
+
+    // 导出为带有 Snap 元信息的 SVG
+    function exportSnapSVG(boundsOpt) {
+      const mode = boundsOpt || document.querySelector('input[name="exp-bounds"]:checked').value;
+      const items = [];
+      paper.project.layers.forEach(layer => {
+        if (layer === uiLayer) return;
+        layer.children.forEach(ch => { if (ch.visible) items.push(ch); });
+      });
+      let bounds = null;
+      if (mode === 'content') {
+        items.forEach(it => { bounds = bounds ? bounds.unite(it.bounds) : it.bounds.clone(); });
+        if (!bounds) { bounds = new paper.Rectangle(new paper.Point(0,0), paper.view.size); }
+      } else {
+        bounds = new paper.Rectangle(new paper.Point(0,0), paper.view.size);
+      }
+      const xmlns = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(xmlns, 'svg');
+      svg.setAttribute('xmlns', xmlns);
+      svg.setAttribute('version', '1.1');
+      // 使用合法值避免某些浏览器/解析器忽略或异常缩放
+      svg.setAttribute('preserveAspectRatio', 'none');
+      try { svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink'); } catch(_) {}
+      svg.setAttribute('snap', 'http://snap.berkeley.edu/run');
+      const vb = `${bounds.left} ${bounds.top} ${bounds.width} ${bounds.height}`;
+      svg.setAttribute('viewBox', vb);
+      svg.setAttribute('width', bounds.width);
+      svg.setAttribute('height', bounds.height);
+      items.forEach(it => {
+        const el = it.exportSVG({ matchShapes: true });
+        const proto = (it.data && it.data.prototype) ? it.data.prototype : (
+          it.className === 'PointText' ? 'VectorText' : 'VectorShape'
+        );
+        try { el.setAttribute('prototype', proto); } catch (_) {}
+        svg.appendChild(el);
+      });
+      const serializer = new XMLSerializer();
+      return serializer.serializeToString(svg);
+    }
+
+    // 分图层导出：返回每个图层（不含 UI 层）的独立 SVG 字符串
+    function exportLayersSVG(boundsOpt){
+      const mode = boundsOpt || document.querySelector('input[name="exp-bounds"]:checked').value;
+      const results = [];
+      const xmlns = 'http://www.w3.org/2000/svg';
+      paper.project.layers.forEach(layer => {
+        if (!layer || layer === uiLayer) return;
+        const items = layer.children.filter(ch => ch && ch.visible);
+        if (!items.length) { results.push(''); return; }
+        // 计算边界
+        let bounds = null;
+        if (mode === 'content') {
+          items.forEach(it => { bounds = bounds ? bounds.unite(it.bounds) : it.bounds.clone(); });
+        } else {
+          bounds = new paper.Rectangle(new paper.Point(0,0), paper.view.size);
+        }
+        const svg = document.createElementNS(xmlns, 'svg');
+        svg.setAttribute('xmlns', xmlns);
+        svg.setAttribute('version', '1.1');
+        svg.setAttribute('preserveAspectRatio', 'none meet');
+        svg.setAttribute('snap', 'http://snap.berkeley.edu/run');
+        const vb = `${bounds.left} ${bounds.top} ${bounds.width} ${bounds.height}`;
+        svg.setAttribute('viewBox', vb);
+        svg.setAttribute('width', bounds.width);
+        svg.setAttribute('height', bounds.height);
+        items.forEach(it => {
+          const el = it.exportSVG({ matchShapes: true });
+          const proto = (it.data && it.data.prototype) ? it.data.prototype : (
+            it.className === 'PointText' ? 'VectorText' : 'VectorShape'
+          );
+          try { el.setAttribute('prototype', proto); } catch (_) {}
+          svg.appendChild(el);
+        });
+        const serializer = new XMLSerializer();
+        results.push(serializer.serializeToString(svg));
+      });
+      return results;
+    }
+
+    // 箭头辅助：绘制与联动更新
+    function addArrowheads(line, style) {
+      const segs = line.segments;
+      if (!segs || segs.length < 2) return [];
+      const start = segs[0].point;
+      const end = segs[segs.length - 1].point;
+      const v = end.subtract(start);
+      const len = Math.max(1, v.length);
+      const dir = v.divide(len);
+      const size = Math.max(6, style.strokeWidth * 2);
+      const half = size * 0.6;
+
+      function triangleAt(tip, direction) {
+        const base = tip.subtract(direction.multiply(size));
+        const perp = new paper.Point(-direction.y, direction.x).multiply(half);
+        const tri = new paper.Path({ closed: true, fillColor: style.strokeColor, strokeColor: null });
+        tri.add(tip);
+        tri.add(base.add(perp));
+        tri.add(base.subtract(perp));
+        tri.data = tri.data || {}; tri.data.prototype = 'VectorPolygon';
+        return tri;
+      }
+
+      const refs = [];
+      if (style.arrowStart) refs.push(triangleAt(start, dir));
+      if (style.arrowEnd) refs.push(triangleAt(end, dir));
+      line.data = line.data || {};
+      line.data.arrowRefs = refs;
+      line.data.arrowStyle = {
+        arrowStart: !!style.arrowStart,
+        arrowEnd: !!style.arrowEnd,
+        size,
+        color: style.strokeColor,
+        strokeWidth: style.strokeWidth
+      };
+      return refs;
+    }
+
+    function updateArrowheadsForLine(line) {
+      if (!line || !line.segments || line.segments.length < 2) return;
+      const styleInfo = (line.data && line.data.arrowStyle) || {
+        arrowStart: false,
+        arrowEnd: false,
+        strokeWidth: line.strokeWidth || 2,
+        strokeColor: line.strokeColor || new paper.Color('black')
+      };
+      // 清除旧引用
+      if (line.data && Array.isArray(line.data.arrowRefs)) {
+        line.data.arrowRefs.forEach(ref => { try { ref.remove(); } catch (_) {} });
+        line.data.arrowRefs = [];
+      }
+      // 重新创建
+      addArrowheads(line, {
+        arrowStart: styleInfo.arrowStart,
+        arrowEnd: styleInfo.arrowEnd,
+        strokeWidth: styleInfo.strokeWidth,
+        strokeColor: styleInfo.color || styleInfo.strokeColor
+      });
+    }
+
+    // 工具实现
+    let currentToolName = 'select';
+    let currentTool = new paper.Tool();
+    let activeItem = null; // 选择模式下活动元素
+    let dragStart = null;
+    let selectingStart = null;
+    let selectingRect = null;
+    let isSelecting = false;
+
+    // 视图与吸附
+    let snapToGrid = false;
+    let gridSize = parseInt(document.getElementById('grid-size').value, 10) || 24;
+    document.getElementById('snap-toggle').addEventListener('change', (e) => { snapToGrid = e.target.checked; });
+    document.getElementById('grid-size').addEventListener('change', (e) => { gridSize = Math.max(2, parseInt(e.target.value, 10) || 24); });
+
+    function snapPoint(p) {
+      if (!snapToGrid) return p;
+      return new paper.Point(
+        Math.round(p.x / gridSize) * gridSize,
+        Math.round(p.y / gridSize) * gridSize
+      );
+    }
+
+    // 图层面板渲染与交互
+    function renderLayers() {
+      const list = document.getElementById('layer-list');
+      if (!list) return;
+      list.innerHTML = '';
+      paper.project.layers.forEach((layer, idx) => {
+        const row = document.createElement('div');
+        row.className = 'layer';
+        const name = document.createElement('span');
+        name.textContent = layer.name || ('Layer ' + (idx + 1));
+        name.contentEditable = true;
+        name.addEventListener('input', () => { layer.name = name.textContent; });
+
+        const controls = document.createElement('span');
+        const btnEye = document.createElement('button');
+        btnEye.title = '显示/隐藏';
+        btnEye.textContent = layer.visible ? '👁️' : '🚫';
+        btnEye.addEventListener('click', () => { layer.visible = !layer.visible; renderLayers(); paper.view.update(); });
+
+        const btnLock = document.createElement('button');
+        btnLock.title = '锁定/解锁';
+        btnLock.textContent = layer.locked ? '🔒' : '🔓';
+        btnLock.addEventListener('click', () => { layer.locked = !layer.locked; renderLayers(); });
+
+        const btnUp = document.createElement('button');
+        btnUp.title = '上移';
+        btnUp.textContent = '▲';
+        btnUp.addEventListener('click', () => {
+          if (idx > 0) {
+            const above = paper.project.layers[idx - 1];
+            layer.insertAbove(above);
+            renderLayers();
+            paper.view.update();
+          }
+        });
+
+        const btnDown = document.createElement('button');
+        btnDown.title = '下移';
+        btnDown.textContent = '▼';
+        btnDown.addEventListener('click', () => {
+          if (idx < paper.project.layers.length - 1) {
+            const below = paper.project.layers[idx + 1];
+            layer.insertBelow(below);
+            renderLayers();
+            paper.view.update();
+          }
+        });
+
+        controls.appendChild(btnEye);
+        controls.appendChild(btnLock);
+        controls.appendChild(btnUp);
+        controls.appendChild(btnDown);
+
+        row.appendChild(name);
+        row.appendChild(controls);
+        row.addEventListener('click', () => { layer.activate(); renderLayers(); });
+        if (paper.project.activeLayer === layer) {
+          row.style.outline = '2px solid var(--accent)';
+        }
+        list.appendChild(row);
+      });
+    }
+
+    function setTool(name) {
+      currentTool.remove();
+      currentTool = new paper.Tool();
+      currentToolName = name;
+      activeItem = null;
+      dragStart = null;
+
+      if (name === 'select') {
+        currentTool.onMouseDown = (event) => {
+          const hit = paper.project.hitTest(snapPoint(event.point), {
+            fill: true,
+            stroke: true,
+            segments: true,
+            tolerance: 6
+          });
+          if (hit && hit.item) {
+            activeItem = hit.item;
+            activeItem.selected = true;
+            dragStart = event.point;
+            isSelecting = false;
+          } else {
+            paper.project.activeLayer.selected = false;
+            paper.project.activeLayer.children.forEach(ch => ch.selected = false);
+            activeItem = null;
+            // 开始框选
+            isSelecting = true;
+            selectingStart = snapPoint(event.point);
+            const prev = paper.project.activeLayer;
+            uiLayer.activate();
+            const r = new paper.Rectangle(selectingStart, selectingStart);
+            selectingRect = new paper.Shape.Rectangle({ rectangle: r, strokeColor: new paper.Color('#6b7280'), dashArray: [4,4], strokeWidth: 1 });
+            prev.activate();
+          }
+        };
+        currentTool.onMouseDrag = (event) => {
+          if (activeItem) {
+            const target = snapPoint(activeItem.position.add(event.delta));
+            const deltaVec = target.subtract(activeItem.position);
+            activeItem.position = target;
+            // 联动箭头：按端点与方向重算
+            if (activeItem.className === 'Path' && activeItem.segments && activeItem.segments.length === 2 && activeItem.data && activeItem.data.arrowStyle) {
+              updateArrowheadsForLine(activeItem);
+            }
+          } else if (isSelecting && selectingRect) {
+            const prev = paper.project.activeLayer;
+            uiLayer.activate();
+            selectingRect.remove();
+            const r = new paper.Rectangle(selectingStart, snapPoint(event.point));
+            selectingRect = new paper.Shape.Rectangle({ rectangle: r, strokeColor: new paper.Color('#6b7280'), dashArray: [4,4], strokeWidth: 1 });
+            prev.activate();
+          }
+        };
+        currentTool.onMouseUp = (event) => {
+          dragStart = null;
+          if (isSelecting && selectingRect) {
+            const rect = selectingRect.rectangle || new paper.Rectangle(selectingStart, snapPoint(event.point));
+            selectingRect.remove();
+            isSelecting = false;
+            // 选中与矩形相交的对象
+            paper.project.activeLayer.children.forEach(it => {
+              if (it.visible && !paper.project.activeLayer.locked && it.bounds.intersects(rect)) {
+                it.selected = true;
+              }
+            });
+          }
+        };
+      }
+
+      if (name === 'brush') {
+        let path;
+        if (currentMode === 'bitmap') {
+          // 在位图模式下，Paper.js 事件点为“工程坐标”，
+          // 需要转换为视图像素坐标再绘制到位图画布，以避免偏移/缩放误差。
+          const toView = (pt) => paper.view.projectToView(pt);
+          currentTool.onMouseDown = (event) => {
+            updateStyleFromUI(); ensureRasterSize();
+            rctx.globalCompositeOperation = 'source-over';
+            rctx.strokeStyle = style.strokeColor.toCSS(true);
+            rctx.lineWidth = style.strokeWidth;
+            rctx.lineJoin = style.strokeJoin;
+            rctx.lineCap = style.strokeCap;
+            const v = toView(event.point);
+            rctx.beginPath(); rctx.moveTo(v.x, v.y);
+          };
+          currentTool.onMouseDrag = (event) => {
+            const v = toView(event.point);
+            rctx.lineTo(v.x, v.y); rctx.stroke();
+          };
+          currentTool.onMouseUp = () => { rctx.closePath(); };
+        } else {
+          currentTool.onMouseDown = (event) => {
+            updateStyleFromUI();
+            path = new paper.Path({
+              strokeColor: style.strokeColor,
+              strokeWidth: style.strokeWidth,
+              fullySelected: false,
+              strokeCap: style.strokeCap,
+              strokeJoin: style.strokeJoin,
+              dashArray: style.dashArray
+            });
+            path.add(snapPoint(event.point));
+          };
+          currentTool.onMouseDrag = (event) => { if (path) { path.add(snapPoint(event.point)); } };
+          currentTool.onMouseUp = () => {
+            if (path) {
+              path.simplify(5);
+              path.data = path.data || {}; path.data.prototype = 'VectorPolygon';
+              pushHistory();
+            }
+          };
+        }
+      }
+
+      if (name === 'rectangle') {
+        let rect; let start;
+        currentTool.onMouseDown = (event) => { start = snapPoint(event.point); };
+        currentTool.onMouseDrag = (event) => {
+          updateStyleFromUI();
+          let end = snapPoint(event.point);
+          if (event.event && event.event.shiftKey) {
+            const dx = end.x - start.x; const dy = end.y - start.y;
+            const s = Math.min(Math.abs(dx), Math.abs(dy));
+            end = new paper.Point(start.x + Math.sign(dx) * s, start.y + Math.sign(dy) * s);
+          }
+          const r = new paper.Rectangle(start, end);
+          if (rect) rect.remove();
+          rect = new paper.Path.Rectangle(r);
+          rect.strokeColor = style.strokeColor;
+          rect.fillColor = style.fillColor;
+          rect.strokeWidth = style.strokeWidth;
+          rect.strokeCap = style.strokeCap;
+          rect.strokeJoin = style.strokeJoin;
+          rect.dashArray = style.dashArray;
+        };
+        currentTool.onMouseUp = () => { if (rect) { rect.data = rect.data || {}; rect.data.prototype = 'VectorRectangle'; pushHistory(); } };
+      }
+
+      if (name === 'ellipse') {
+        let ell; let start;
+        currentTool.onMouseDown = (event) => { start = snapPoint(event.point); };
+        currentTool.onMouseDrag = (event) => {
+          updateStyleFromUI();
+          let end = snapPoint(event.point);
+          if (event.event && event.event.shiftKey) {
+            const dx = end.x - start.x; const dy = end.y - start.y;
+            const s = Math.min(Math.abs(dx), Math.abs(dy));
+            end = new paper.Point(start.x + Math.sign(dx) * s, start.y + Math.sign(dy) * s);
+          }
+          const r = new paper.Rectangle(start, end);
+          if (ell) ell.remove();
+          ell = new paper.Path.Ellipse(r);
+          ell.strokeColor = style.strokeColor;
+          ell.fillColor = style.fillColor;
+          ell.strokeWidth = style.strokeWidth;
+          ell.strokeCap = style.strokeCap;
+          ell.strokeJoin = style.strokeJoin;
+          ell.dashArray = style.dashArray;
+        };
+        currentTool.onMouseUp = () => { if (ell) { ell.data = ell.data || {}; ell.data.prototype = 'VectorEllipse'; pushHistory(); } };
+      }
+
+      if (name === 'line') {
+        let line; let start;
+        currentTool.onMouseDown = (event) => { start = snapPoint(event.point); };
+        currentTool.onMouseDrag = (event) => {
+          updateStyleFromUI();
+          let end = snapPoint(event.point);
+          if (event.event && event.event.shiftKey) {
+            const delta = end.subtract(start);
+            if (Math.abs(delta.x) > Math.abs(delta.y)) {
+              end = new paper.Point(end.x, start.y);
+            } else {
+              end = new paper.Point(start.x, end.y);
+            }
+          }
+          if (line) line.remove();
+          line = new paper.Path({ strokeColor: style.strokeColor, strokeWidth: style.strokeWidth });
+          line.add(start);
+          line.add(end);
+          line.strokeCap = style.strokeCap;
+          line.strokeJoin = style.strokeJoin;
+          line.dashArray = style.dashArray;
+          // 箭头
+          if (style.arrowStart || style.arrowEnd) {
+            addArrowheads(line, style);
+          }
+        };
+        currentTool.onMouseUp = () => { if (line) { line.data = line.data || {}; line.data.prototype = 'VectorLine'; pushHistory(); } };
+      }
+
+      if (name === 'text') {
+        currentTool.onMouseDown = (event) => {
+          updateStyleFromUI();
+          const text = new paper.PointText({
+            point: event.point,
+            content: '文本',
+            fillColor: style.strokeColor,
+            fontSize: 18
+          });
+          text.selected = true;
+        };
+      }
+
+      if (name === 'crosshair') {
+        currentTool.onMouseDown = (event) => {
+          setRotationCenter(snapPoint(event.point));
+        };
+      }
+
+      if (name === 'subselect') {
+        let seg = null;
+        currentTool.onMouseDown = (event) => {
+          const hit = paper.project.hitTest(snapPoint(event.point), { segments: true, tolerance: 6 });
+          if (hit && hit.segment) { seg = hit.segment; }
+        };
+        currentTool.onMouseDrag = (event) => {
+          if (seg) {
+            seg.point = snapPoint(event.point);
+            // 如果是直线的端点被拖动，重算箭头
+            const owner = seg.path;
+            if (owner && owner.className === 'Path' && owner.segments && owner.segments.length === 2 && owner.data && owner.data.arrowStyle) {
+              updateArrowheadsForLine(owner);
+            }
+          }
+        };
+        currentTool.onMouseUp = () => { seg = null; };
+      }
+
+      if (name === 'bucket') {
+        currentTool.onMouseDown = (event) => {
+          updateStyleFromUI();
+          const hit = paper.project.hitTest(snapPoint(event.point), { fill: true, stroke: true, tolerance: 6 });
+          if (hit && hit.item) { hit.item.fillColor = style.fillColor; pushHistory(); paper.view.update(); }
+        };
+      }
+
+      if (name === 'eraser') {
+        let eraserPath;
+        if (currentMode === 'bitmap') {
+          const toView = (pt) => paper.view.projectToView(pt);
+          currentTool.onMouseDown = (event) => {
+            ensureRasterSize(); updateStyleFromUI();
+            rctx.globalCompositeOperation = 'destination-out';
+            rctx.strokeStyle = 'rgba(0,0,0,1)';
+            rctx.lineWidth = Math.max(6, style.strokeWidth);
+            rctx.lineJoin = 'round'; rctx.lineCap = 'round';
+            const v = toView(event.point);
+            rctx.beginPath(); rctx.moveTo(v.x, v.y);
+          };
+          currentTool.onMouseDrag = (event) => {
+            const v = toView(event.point);
+            rctx.lineTo(v.x, v.y); rctx.stroke();
+          };
+          currentTool.onMouseUp = () => { rctx.closePath(); rctx.globalCompositeOperation = 'source-over'; };
+        } else {
+          currentTool.onMouseDown = (event) => {
+            eraserPath = new paper.Path({ strokeColor: new paper.Color('#000'), strokeWidth: 1 });
+            eraserPath.add(snapPoint(event.point));
+          };
+          currentTool.onMouseDrag = (event) => { eraserPath && eraserPath.add(snapPoint(event.point)); };
+          currentTool.onMouseUp = () => {
+            if (!eraserPath) return;
+            // 闭合简化擦除路径以用于布尔运算
+            try { eraserPath.closed = true; eraserPath.simplify(2); } catch (_) {}
+            const items = paper.project.activeLayer.children.slice();
+            items.forEach(it => {
+              if (!it || it === eraserPath || it.locked || !it.visible) return;
+              try {
+                // 对闭合路径（填充形状）做布尔裁剪
+                if ((it instanceof paper.Path || it instanceof paper.CompoundPath) && it.closed) {
+                  const res = it.subtract(eraserPath);
+                  if (res) { it.remove(); paper.project.activeLayer.addChild(res); res.selected = true; }
+                  return;
+                }
+                // 对直线段做分段擦除
+                if (it.className === 'Path' && it.segments && it.segments.length === 2) {
+                  const [s0, s1] = [it.segments[0].point, it.segments[1].point];
+                  const ints = it.getIntersections(eraserPath) || [];
+                  if (ints.length === 0) {
+                    // 如果端点在擦除区内则删除
+                    if (eraserPath.contains(s0) || eraserPath.contains(s1)) { it.remove(); }
+                    return;
+                  }
+                  // 按线上的位置排序
+                  const pts = ints.map(i => i.point);
+                  // 只支持最多两个交点的情况（常见）
+                  const pA = pts[0], pB = pts[1] || null;
+                  const newLines = [];
+                  const mkLine = (a, b) => {
+                    const ln = new paper.Path({ strokeColor: it.strokeColor, strokeWidth: it.strokeWidth });
+                    ln.add(a); ln.add(b); ln.strokeCap = it.strokeCap; ln.strokeJoin = it.strokeJoin; ln.dashArray = it.dashArray;
+                    ln.data = ln.data || {}; ln.data.prototype = 'VectorLine';
+                    // 继承箭头样式并重绘
+                    if (it.data && it.data.arrowStyle) { addArrowheads(ln, it.data.arrowStyle); }
+                    return ln;
+                  };
+                  const s0Inside = eraserPath.contains(s0);
+                  const s1Inside = eraserPath.contains(s1);
+                  if (pA && !pB) {
+                    // 单交点：保留在外的一段
+                    if (!s0Inside && s1Inside) { newLines.push(mkLine(s0, pA)); }
+                    else if (s0Inside && !s1Inside) { newLines.push(mkLine(pA, s1)); }
+                  } else if (pA && pB) {
+                    // 双交点：可能产生两段
+                    if (!s0Inside) newLines.push(mkLine(s0, pA));
+                    if (!s1Inside) newLines.push(mkLine(pB, s1));
+                  }
+                  // 更新场景
+                  if (newLines.length) {
+                    it.remove();
+                    newLines.forEach(nl => { paper.project.activeLayer.addChild(nl); nl.selected = true; });
+                  }
+                  return;
+                }
+                // 其它对象：若边界相交则删除（保守处理）
+                if (it.bounds && eraserPath.bounds && it.bounds.intersects(eraserPath.bounds)) { it.remove(); }
+              } catch (e) {
+                // 失败时退化为边界检测删除
+                if (it.bounds && eraserPath.bounds && it.bounds.intersects(eraserPath.bounds)) { it.remove(); }
+              }
+            });
+            eraserPath.remove(); pushHistory(); paper.view.update();
+          };
+        }
+      }
+    }
+
+    // 标签面板切换
+    const tabbar = document.getElementById('tabbar');
+    tabbar.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'BUTTON') return;
+      const tab = e.target.getAttribute('data-tab');
+      document.querySelectorAll('#tabbar button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      document.querySelectorAll('#panels .panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(tab).classList.add('active');
+    });
+
+    // 左侧工具栏事件
+    document.querySelectorAll('#left-tools [data-tool]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#left-tools button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        setTool(btn.getAttribute('data-tool'));
+      });
+    });
+    // 默认选择工具
+    document.querySelector('#left-tools [data-tool="select"]').classList.add('active');
+    setTool('select');
+    renderLayers();
+
+    // 导入/导出
+    document.getElementById('clear').addEventListener('click', () => {
+      paper.project.clear();
+      paper.view.update();
+      document.getElementById('export-text').value = '';
+      pushHistory();
+    });
+
+    document.getElementById('import-svg').addEventListener('click', () => document.getElementById('file-input').click());
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      try {
+        paper.project.importSVG(text, { insert: true });
+        paper.view.update();
+        pushHistory();
+      } catch (err) {
+        alert('导入失败：' + err.message);
+      }
+    });
+
+    document.getElementById('export-svg').addEventListener('click', () => {
+      const svgString = exportSnapSVG();
+      document.getElementById('export-text').value = svgString;
+      const blob = new Blob([svgString], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.getElementById('download-link');
+      a.href = url;
+      a.textContent = '下载SVG';
+      a.download = 'drawing.svg';
+    });
+
+    document.getElementById('export-png').addEventListener('click', () => {
+      const dataUrl = currentMode === 'bitmap' ? rasterCanvas.toDataURL('image/png') : paper.view.element.toDataURL('image/png');
+      document.getElementById('export-text').value = dataUrl;
+      const a = document.getElementById('download-link');
+      a.href = dataUrl;
+      a.textContent = '下载PNG';
+      a.download = 'drawing.png';
+    });
+
+    document.getElementById('add-layer').addEventListener('click', () => {
+      const layer = new paper.Layer();
+      layer.activate();
+      renderLayers();
+      pushHistory();
+    });
+
+    // 删除选中按钮
+    const btnDelete = document.getElementById('btn-delete');
+    if (btnDelete) {
+      btnDelete.addEventListener('click', () => {
+        paper.project.activeLayer.children
+          .filter(ch => ch.selected)
+          .forEach(ch => ch.remove());
+        pushHistory();
+      });
+    }
+
+    const btnDeleteLayer = document.getElementById('delete-layer');
+    if (btnDeleteLayer) {
+      btnDeleteLayer.addEventListener('click', () => {
+        const layer = paper.project.activeLayer;
+        if (paper.project.layers.length <= 1) { return; }
+        const idx = paper.project.layers.indexOf(layer);
+        const target = idx > 0 ? paper.project.layers[idx - 1] : paper.project.layers[idx + 1];
+        layer.remove();
+        if (target) target.activate();
+        renderLayers();
+        paper.view.update();
+        pushHistory();
+      });
+    }
+
+    // 对齐与分布
+    function getSelection() {
+      return paper.project.activeLayer.children.filter(ch => ch.selected);
+    }
+    function getBounds(items) {
+      if (!items.length) return null;
+      let rect = items[0].bounds.clone();
+      for (let i = 1; i < items.length; i++) {
+        rect = rect.unite(items[i].bounds);
+      }
+      return rect;
+    }
+    function align(direction) {
+      const items = getSelection();
+      const b = getBounds(items);
+      if (!b) return;
+      items.forEach(it => {
+        const ib = it.bounds;
+        let x = it.position.x, y = it.position.y;
+        if (direction === 'left') x = b.left + ib.width / 2;
+        if (direction === 'center-x') x = b.center.x;
+        if (direction === 'right') x = b.right - ib.width / 2;
+        if (direction === 'top') y = b.top + ib.height / 2;
+        if (direction === 'center-y') y = b.center.y;
+        if (direction === 'bottom') y = b.bottom - ib.height / 2;
+        it.position = new paper.Point(x, y);
+      });
+      paper.view.update();
+    }
+    function distribute(axis) {
+      const items = getSelection();
+      if (items.length < 3) return; // 至少3个对象
+      items.sort((a, b) => axis === 'h' ? a.bounds.left - b.bounds.left : a.bounds.top - b.bounds.top);
+      const b = getBounds(items);
+      const step = axis === 'h' ? b.width / (items.length - 1) : b.height / (items.length - 1);
+      items.forEach((it, i) => {
+        const pos = axis === 'h' ? new paper.Point(b.left + step * i, it.position.y) : new paper.Point(it.position.x, b.top + step * i);
+        it.position = pos;
+      });
+      paper.view.update();
+    }
+    document.getElementById('align-left').addEventListener('click', () => align('left'));
+    document.getElementById('align-center-x').addEventListener('click', () => align('center-x'));
+    document.getElementById('align-right').addEventListener('click', () => align('right'));
+    document.getElementById('align-top').addEventListener('click', () => align('top'));
+    document.getElementById('align-center-y').addEventListener('click', () => align('center-y'));
+    document.getElementById('align-bottom').addEventListener('click', () => align('bottom'));
+    document.getElementById('distribute-h').addEventListener('click', () => distribute('h'));
+    document.getElementById('distribute-v').addEventListener('click', () => distribute('v'));
+
+    // 布尔运算与组合
+    function pathItemsOfSelection() {
+      return getSelection().filter(it => it instanceof paper.Path || it instanceof paper.CompoundPath);
+    }
+    function pathOp(op) {
+      const items = pathItemsOfSelection();
+      if (items.length < 2) return;
+      let result = items[0];
+      for (let i = 1; i < items.length; i++) {
+        try {
+          let res;
+          if (op === 'unite') res = result.unite(items[i]);
+          if (op === 'intersect') res = result.intersect(items[i]);
+          if (op === 'subtract') res = result.subtract(items[i]);
+          if (op === 'exclude') res = result.exclude(items[i]);
+          result.remove();
+          result = res;
+        } catch (e) { console.warn('Path op error', e); }
+      }
+      items.forEach((it, idx) => { if (idx > 0) it.remove(); });
+      result.selected = true;
+      paper.project.activeLayer.addChild(result);
+      paper.view.update();
+    }
+    document.getElementById('op-unite').addEventListener('click', () => pathOp('unite'));
+    document.getElementById('op-intersect').addEventListener('click', () => pathOp('intersect'));
+    document.getElementById('op-subtract').addEventListener('click', () => pathOp('subtract'));
+    document.getElementById('op-exclude').addEventListener('click', () => pathOp('exclude'));
+    document.getElementById('op-simplify').addEventListener('click', () => {
+      pathItemsOfSelection().forEach(p => p.simplify(2));
+      paper.view.update();
+    });
+    document.getElementById('group').addEventListener('click', () => {
+      const items = getSelection();
+      if (!items.length) return;
+      const g = new paper.Group(items);
+      g.selected = true;
+      paper.view.update();
+    });
+    document.getElementById('ungroup').addEventListener('click', () => {
+      const items = getSelection();
+      items.forEach(it => {
+        if (it instanceof paper.Group) {
+          it.children.forEach(ch => { ch.selected = true; paper.project.activeLayer.addChild(ch); });
+          it.remove();
+        }
+      });
+      paper.view.update();
+    });
+
+    // 快捷键：Delete 删除选中
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Delete') {
+        paper.project.activeLayer.children
+          .filter(ch => ch.selected)
+          .forEach(ch => ch.remove());
+        pushHistory();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        window.__clipboard = paper.project.activeLayer.children.filter(ch => ch.selected).map(it => it.clone());
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        const offset = new paper.Point(10, 10);
+        (window.__clipboard || []).forEach(clone => { clone.position = clone.position.add(offset); paper.project.activeLayer.addChild(clone); });
+        paper.view.update();
+        pushHistory();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        const snap = history.pop();
+        if (snap) { redoStack.push(snapshot()); restore(snap); }
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y')) {
+        const snap = redoStack.pop();
+        if (snap) { history.push(snapshot()); restore(snap); }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+        paper.project.activeLayer.children.filter(ch => ch.selected).forEach(ch => ch.bringToFront());
+        pushHistory();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        paper.project.activeLayer.children.filter(ch => ch.selected).forEach(ch => ch.sendToBack());
+        pushHistory();
+      }
+    });
+
+    // 缩放控制
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomResetBtn = document.getElementById('zoom-reset');
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => { paper.view.zoom *= 1.1; paper.view.update(); });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { paper.view.zoom /= 1.1; paper.view.update(); });
+    if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => { paper.view.zoom = 1; paper.view.update(); });
+
+    // 状态栏联动
+    function updateStatusFromEvent(e) {
+      const rect = canvas.getBoundingClientRect();
+      // 将视图像素按 CSS 与视图尺寸比例转换，避免偏移/缩放误差
+      const scaleX = paper.view.size.width / rect.width;
+      const scaleY = paper.view.size.height / rect.height;
+      const viewPt = new paper.Point((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+      const projPt = paper.view.viewToProject(viewPt);
+      const selCount = paper.project.selectedItems ? paper.project.selectedItems.length : paper.project.activeLayer.children.filter(ch => ch.selected).length;
+      const zoom = Math.round(paper.view.zoom * 100);
+      document.getElementById('statusbar').textContent = `坐标: ${Math.round(projPt.x)}, ${Math.round(projPt.y)} , 选中: ${selCount} , 缩放: ${zoom}%`;
+    }
+    document.addEventListener('mousemove', updateStatusFromEvent);
+
+    // 视图更新
+    paper.view.onResize = () => paper.view.update();
+    // 撤销/重做按钮（保持在主脚本内）
+    document.getElementById('undo').addEventListener('click', () => {
+      const snap = history.pop();
+      if (snap) { redoStack.push(snapshot()); restore(snap); }
+    });
+    document.getElementById('redo').addEventListener('click', () => {
+      const snap = redoStack.pop();
+      if (snap) { history.push(snapshot()); restore(snap); }
+    });
+
+    // 完成并返回（嵌入模式桥接）
+    document.getElementById('btn-finish').addEventListener('click', () => {
+      try {
+        let payload;
+        if (currentMode === 'bitmap') {
+          ensureRasterSize();
+          const dataUrl = rasterCanvas.toDataURL('image/png');
+          payload = { type: 'snap-paint-result', kind: 'bitmap', png: dataUrl, center: { x: rotationCenter.x, y: rotationCenter.y } };
+        } else {
+          const svgString = exportSnapSVG();
+          const layers = exportLayersSVG();
+          payload = { type: 'snap-paint-result', kind: 'vector', svg: svgString, layers: layers, center: { x: rotationCenter.x, y: rotationCenter.y } };
+        }
+        window.parent && window.parent.postMessage(payload, '*');
+      } catch (e) { console.warn('postMessage error', e); }
+    });
+
+    // 接收父窗口的初始化消息（保持在主脚本内）
+    window.addEventListener('message', (ev) => {
+      const msg = ev.data || {};
+      if (msg.type === 'snap-paint-init') {
+        try {
+          // 主题应用：根据 IDE 传入的主题设置 CSS 变量
+          if (msg.theme) {
+            const t = msg.theme;
+            const root = document.documentElement.style;
+            // 简单亮/暗判断：取背景的近似亮度
+            function parseRGB(s){
+              if(!s) return [246,247,249];
+              if(/^#/.test(s)){
+                const h = s.replace('#','');
+                const n = h.length===3? h.split('').map(c=>parseInt(c+c,16)) : [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+                return n;
+              }
+              const m = s.match(/(\d+)[^\d]+(\d+)[^\d]+(\d+)/); return m? [parseInt(m[1],10),parseInt(m[2],10),parseInt(m[3],10)] : [246,247,249];
+            }
+            const [r,g,b] = parseRGB(t.backgroundColor || t.frameColor);
+            const lum = (0.299*r + 0.587*g + 0.114*b)/255; // 0=dark,1=light
+            const isDark = lum < 0.5;
+            root.setProperty('--bg', t.backgroundColor || (isDark? '#1e1e1e' : '#f6f7f9'));
+            root.setProperty('--panel', t.groupColor || t.frameColor || (isDark? '#2b2b2b' : '#ffffff'));
+            root.setProperty('--border', isDark? '#3c3c3c' : '#e5e7eb');
+            root.setProperty('--ink', isDark? '#f5f5f5' : '#222');
+            root.setProperty('--ink-weak', isDark? '#b5b5b5' : '#6b7280');
+            root.setProperty('--accent', t.titleBarColor || '#6f61ef');
+            root.setProperty('--accent-ink', t.titleTextColor || (isDark? '#ffffff' : '#000000'));
+          }
+          if (msg.size && msg.size.width && msg.size.height) {
+            // 设置内部像素尺寸与 CSS 尺寸一致，确保坐标精确
+            canvas.width = msg.size.width; canvas.height = msg.size.height;
+            canvas.style.width = msg.size.width + 'px';
+            canvas.style.height = msg.size.height + 'px';
+            // 提示 Paper 使用同样的视图尺寸
+            paper.view.setViewSize(new paper.Size(msg.size.width, msg.size.height));
+            try { paper.view.pixelRatio = Math.max(1, window.devicePixelRatio || 1); } catch(_) {}
+            ensureRasterSize();
+          }
+          if (msg.svg) {
+            // 清空当前项目并导入传入的SVG
+            paper.project.clear();
+            paper.project.importSVG(msg.svg, { insert: true });
+            renderLayers(); paper.view.update();
+          }
+          if (msg.center && typeof msg.center.x === 'number' && typeof msg.center.y === 'number') {
+            setRotationCenter(new paper.Point(msg.center.x, msg.center.y));
+          }
+        } catch (e) { console.warn('init message error', e); }
+      } else if (msg.type === 'snap-paint-submit') {
+        // 父窗口点击“确定”时导出并返回
+        try {
+          let payload;
+          if (currentMode === 'bitmap') {
+            ensureRasterSize();
+            const dataUrl = rasterCanvas.toDataURL('image/png');
+            payload = { type: 'snap-paint-result', kind:'bitmap', png: dataUrl, center: { x: rotationCenter.x, y: rotationCenter.y } };
+          } else {
+            const svgString = exportSnapSVG();
+            const layers = exportLayersSVG();
+            payload = { type: 'snap-paint-result', kind:'vector', svg: svgString, layers: layers, center: { x: rotationCenter.x, y: rotationCenter.y } };
+          }
+          window.parent && window.parent.postMessage(payload, '*');
+        } catch (e) { console.warn('submit message error', e); }
+      }
+    });
+
+    // 模式切换（矢量 / 位图）
+    let currentMode = 'vector';
+
+    // 让位图画布与 Paper 视图保持同尺寸，并考虑高 DPI
+    function ensureRasterSize(){
+      const sz = paper.view.size;
+      const w = Math.round(sz.width);
+      const h = Math.round(sz.height);
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      // CSS 尺寸
+      rasterCanvas.style.width = w + 'px';
+      rasterCanvas.style.height = h + 'px';
+      // 像素尺寸（乘以 DPR）
+      const needW = Math.round(w * dpr);
+      const needH = Math.round(h * dpr);
+      if (rasterCanvas.width !== needW) rasterCanvas.width = needW;
+      if (rasterCanvas.height !== needH) rasterCanvas.height = needH;
+      // 使用坐标变换，继续按 CSS 像素绘制，保持清晰
+      const ctx = rasterCanvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+    }
+
+    // 将当前矢量内容快照到位图画布
+    function snapshotVectorToRaster(){
+      try {
+        const svgString = paper.project.exportSVG({ asString: true });
+        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = function(){
+          const ctx = rasterCanvas.getContext('2d');
+          ctx.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
+          // 覆盖绘制到整张画布（与 Paper 视图同尺寸）
+          ctx.drawImage(img, 0, 0, rasterCanvas.width, rasterCanvas.height);
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = function(){ URL.revokeObjectURL(url); };
+        img.src = url;
+      } catch (e) { /* 忽略导出失败 */ }
+    }
+
+    const rctx = rasterCanvas.getContext('2d');
+    // 默认隐藏“旋转中心”按钮
+    (function(){ const btn = document.querySelector('#left-tools [data-tool="crosshair"]'); if (btn) btn.style.display = 'none'; })();
+    document.getElementById('mode-vector').addEventListener('click', ()=>{
+      currentMode = 'vector';
+      document.getElementById('mode-vector').classList.add('active');
+      document.getElementById('mode-bitmap').classList.remove('active');
+      rasterCanvas.style.pointerEvents = 'none';
+    });
+    document.getElementById('mode-bitmap').addEventListener('click', ()=>{
+      currentMode = 'bitmap';
+      ensureRasterSize();
+      snapshotVectorToRaster();
+      document.getElementById('mode-bitmap').classList.add('active');
+      document.getElementById('mode-vector').classList.remove('active');
+      rasterCanvas.style.pointerEvents = 'auto';
+    });
+
+    // 监听窗口与 Paper 视图大小变化，保持位图画布同步
+    window.addEventListener('resize', ensureRasterSize, { passive: true });
+    paper.view.onResize = function(){ ensureRasterSize(); };
+
+  </script>
+</body>
+</html>

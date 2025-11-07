@@ -37,6 +37,11 @@
         <script src="src/embroider.js?version=2024-05-09"></script>
         <script src="src/sha512.js?version=2019-06-27"></script>
         <script src="src/FileSaver.min.js?version=2019-06-27"></script>
+        <!-- Embedded paint bridge (PaperAdapter) will be loaded dynamically after IDE init -->
+        <script>
+            // Enable embedded paint editor integration
+            window.useEmbeddedPaint = true;
+        </script>
         <script>
             var world;
             window.onload = function () {
@@ -55,11 +60,19 @@
                         );
                     };
 
-                if ('serviceWorker' in navigator) {
+                // temporarily disable service worker during debugging to avoid caching / module parsing issues
+                if ('serviceWorker' in navigator && false) {
                     navigator.serviceWorker.register('sw.js');
                 }
                 world = new WorldMorph(document.getElementById('world'));
                 new IDE_Morph().openIn(world);
+                // load embedded paint adapter dynamically to avoid early module interference
+                (function(){
+                    var s = document.createElement('script');
+                    s.src = 'src/paint-adapter.js?version=2025-11-05';
+                    s.defer = true;
+                    document.head.appendChild(s);
+                })();
                 requestAnimationFrame(loop);
             };
         </script>

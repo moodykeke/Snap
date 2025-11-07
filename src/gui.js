@@ -11994,7 +11994,8 @@ WardrobeMorph.prototype.updateList = function () {
         icon,
         txt,
         paintbutton,
-        cambutton;
+        cambutton,
+        protobutton;
 
     this.changed();
 
@@ -12034,6 +12035,30 @@ WardrobeMorph.prototype.updateList = function () {
 
     this.addContents(paintbutton);
 
+    // 独立画板编辑器按钮（原型）
+    protobutton = new PushButtonMorph(
+        this,
+        "paintNewAlt",
+        new SymbolMorph("brush", 15)
+    );
+    protobutton.padding = 0;
+    protobutton.corner = 12;
+    protobutton.color = IDE_Morph.prototype.groupColor;
+    protobutton.highlightColor = IDE_Morph.prototype.frameColor.darker(50);
+    protobutton.pressColor = protobutton.highlightColor;
+    protobutton.labelMinExtent = new Point(36, 18);
+    protobutton.labelShadowOffset = new Point(-1, -1);
+    protobutton.labelShadowColor = protobutton.highlightColor;
+    protobutton.labelColor = TurtleIconMorph.prototype.labelColor;
+    protobutton.contrast = this.buttonContrast;
+    protobutton.hint = "进入独立画板（融合主题）";
+    protobutton.setPosition(new Point(x, y));
+    protobutton.fixLayout();
+    protobutton.setCenter(paintbutton.center());
+    protobutton.setLeft(paintbutton.right() + toolsPadding);
+
+    this.addContents(protobutton);
+
     if (CamSnapshotDialogMorph.prototype.enableCamera) {
         cambutton = new PushButtonMorph(
             this,
@@ -12053,8 +12078,8 @@ WardrobeMorph.prototype.updateList = function () {
         cambutton.hint = "Import a new costume from your webcam";
         cambutton.setPosition(new Point(x, y));
         cambutton.fixLayout();
-        cambutton.setCenter(paintbutton.center());
-        cambutton.setLeft(paintbutton.right() + toolsPadding);
+        cambutton.setCenter(protobutton.center());
+        cambutton.setLeft(protobutton.right() + toolsPadding);
 
         this.addContents(cambutton);
 
@@ -12178,6 +12203,63 @@ WardrobeMorph.prototype.newFromCam = function () {
 
     camDialog.key = 'camera';
     camDialog.popUp(this.world());
+};
+
+// 使用嵌入式原型画板打开并创建新的 SVG 服装
+WardrobeMorph.prototype.paintNewAlt = function () {
+    var ide = this.parentThatIsA(IDE_Morph),
+        sprite = this.sprite,
+        myself = this;
+
+    if (window.PaperAdapterBridge && typeof window.PaperAdapterBridge.openEmbeddedEditor === 'function') {
+        window.PaperAdapterBridge.openEmbeddedEditor({
+            svg: null,
+            center: { x: Math.round(ide.stage.dimensions.x / 2), y: Math.round(ide.stage.dimensions.y / 2) },
+            size: { width: ide.stage.dimensions.x, height: ide.stage.dimensions.y },
+            theme: {
+                // 传递 IDE 主题色以适配弹窗
+                frameColor: ide.frameColor && ide.frameColor.toString ? ide.frameColor.toString() : '#eee',
+                buttonColor: ide.buttonColor && ide.buttonColor.toString ? ide.buttonColor.toString() : '#fff',
+                buttonInk: ide.buttonContrast ? '#000' : '#222',
+                titleBarColor: DialogBoxMorph.prototype.titleBarColor && DialogBoxMorph.prototype.titleBarColor.toString ? DialogBoxMorph.prototype.titleBarColor.toString() : '#6fa8dc',
+                titleTextColor: DialogBoxMorph.prototype.titleTextColor || '#fff',
+                backgroundColor: ide.backgroundColor && ide.backgroundColor.toString ? ide.backgroundColor.toString() : '#f6f7f9',
+                groupColor: ide.groupColor && ide.groupColor.toString ? ide.groupColor.toString() : '#fafbfc'
+            },
+            onSubmit: function (svgString, center, kind, pngDataUrl) {
+                try {
+                    var rc = new Point(center && center.x || Math.round(ide.stage.dimensions.x / 2), center && center.y || Math.round(ide.stage.dimensions.y / 2));
+                    var cos;
+                    if (kind === 'bitmap' && pngDataUrl) {
+                        var imgBmp = new Image();
+                        imgBmp.src = /^data:image\/png/.test(pngDataUrl) ? pngDataUrl : ('data:image/png;base64,' + pngDataUrl);
+                        cos = new Costume(
+                            imgBmp,
+                            sprite.newCostumeName(localize('Untitled')),
+                            rc
+                        );
+                    } else {
+                        var img = new Image();
+                        img.src = 'data:image/svg+xml;base64,' + (window.btoa ? window.btoa(svgString) : svgString);
+                        cos = new SVG_Costume(
+                            img,
+                            sprite.newCostumeName(localize('Untitled')),
+                            rc
+                        );
+                    }
+                    sprite.shadowAttribute('costumes');
+                    sprite.addCostume(cos);
+                    myself.updateList();
+                    sprite.wearCostume(cos);
+                    sprite.recordUserEdit('costume', 'draw', cos.name);
+                } catch (e) { /* ignore */ }
+            },
+            onCancel: function () { /* no-op */ }
+        });
+    } else {
+        // 回退到默认位图编辑器
+        this.paintNew();
+    }
 };
 
 // Wardrobe drag & drop

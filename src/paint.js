@@ -79,7 +79,8 @@
 /*global Point, Rectangle, DialogBoxMorph, AlignmentMorph, PushButtonMorph, nop,
 Color, SymbolMorph, newCanvas, Morph, StringMorph, Costume, SpriteMorph,  isNil,
 localize, InputFieldMorph, SliderMorph, ToggleMorph, ToggleButtonMorph, modules,
-BoxMorph, radians, MorphicPreferences, getDocumentPositionOf, SVG_Costume*/
+BoxMorph, radians, MorphicPreferences, getDocumentPositionOf, SVG_Costume,
+PaperAdapter*/
 
 /*jshint esversion: 6*/
 
@@ -173,6 +174,12 @@ PaintEditorMorph.prototype.buildContents = function () {
 
     this.refreshToolButtons();
     this.fixLayout();
+
+    // adapter hook: notify external integrations when editor is built
+    if (typeof PaperAdapter !== 'undefined' && PaperAdapter &&
+            typeof PaperAdapter.onEditorBuilt === 'function') {
+        try { PaperAdapter.onEditorBuilt(this); } catch (err) {}
+    }
 };
 
 PaintEditorMorph.prototype.buildToolbox = function () {
@@ -351,6 +358,12 @@ PaintEditorMorph.prototype.ok = function () {
         this.paper.paper,
         this.paper.rotationCenter
     );
+
+    // adapter hook: notify on submit
+    if (typeof PaperAdapter !== 'undefined' && PaperAdapter &&
+            typeof PaperAdapter.onSubmit === 'function') {
+        try { PaperAdapter.onSubmit(this.paper.paper, this.paper.rotationCenter); } catch (err) {}
+    }
     this.destroy();
 };
 
