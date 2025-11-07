@@ -103,9 +103,57 @@ class PaperAdapter {
   }
 }
 
+// --- Session store for snapshots, undo/redo, and local persistence ---
+class PaintSessionStore {
+  constructor() { this.history = []; this.index = -1; this.lastSavedKey = null; }
+  snapshotFromCanvas(canvas) {
+    try { return (canvas && canvas.toDataURL) ? canvas.toDataURL('image/png') : null; } catch (e) { return null; }
+  }
+  commit(canvas) {
+    const snap = this.snapshotFromCanvas(canvas); if (!snap) return false;
+    const curr = this.history[this.index]; if (curr && curr === snap) return false;
+    if (this.index < this.history.length - 1) this.history = this.history.slice(0, this.index + 1);
+    this.history.push(snap); this.index = this.history.length - 1; return true;
+  }
+  undo() { if (this.index > 0) { this.index -= 1; return this.history[this.index]; } return null; }
+  redo() { if (this.index < this.history.length - 1) { this.index += 1; return this.history[this.index]; } return null; }
+  current() { return this.history[this.index] || null; }
+  applyToCanvas(canvas, dataURL) {
+    if (!canvas || !dataURL) return false;
+    try { const ctx = canvas.getContext && canvas.getContext('2d'); if (!ctx) return false;
+      const img = new Image(); img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
+      img.src = dataURL; return true; } catch (e) { return false; }
+  }
+  saveLocal(key) { try { const k = key || 'snap:paint:last'; const payload = JSON.stringify({ history: this.history, index: this.index }); localStorage.setItem(k, payload); this.lastSavedKey = k; return true; } catch (e) { return false; } }
+  loadLocal(key) { try { const raw = localStorage.getItem(key || 'snap:paint:last'); if (!raw) return false; const obj = JSON.parse(raw); if (Array.isArray(obj.history)) { this.history = obj.history; this.index = typeof obj.index === 'number' ? obj.index : (obj.history.length - 1); return true; } return false; } catch (e) { return false; } }
+}
+
+// --- Lifecycle hooks consumed by paint.js ---
+PaperAdapter._store = null; PaperAdapter._timer = null;
+PaperAdapter.onEditorBuilt = function (editor) {
+  try {
+    const canvas = editor && editor.paper && editor.paper.paper;
+    this._store = new PaintSessionStore();
+    this._store.commit(canvas);
+    const self = this;
+    this._timer = setInterval(function(){ try { self._store.commit(canvas); } catch(_){} }, 5000);
+    window.PaintAdapterAPI = {
+      undo: function(){ const data = self._store.undo(); if (data) self._store.applyToCanvas(canvas, data); return !!data; },
+      redo: function(){ const data = self._store.redo(); if (data) self._store.applyToCanvas(canvas, data); return !!data; },
+      saveLocal: function(key){ return self._store.saveLocal(key); },
+      loadLocal: function(key){ return self._store.loadLocal(key); },
+      current: function(){ return self._store.current(); }
+    };
+  } catch (e) { /* keep UI intact */ }
+};
+PaperAdapter.onSubmit = function (canvas /*, rotationCenter */) {
+  try { if (this._timer) { clearInterval(this._timer); this._timer = null; } if (this._store) { this._store.commit(canvas); this._store.saveLocal('snap:paint:last'); } } catch(e){}
+};
+
 // UMD 暴露
 if (typeof window !== 'undefined') {
   window.PaperAdapter = PaperAdapter;
+  window.PaintSessionStore = PaintSessionStore;
   window.PaperAdapterBridge = {
     openEmbeddedEditor: function (opts) {
       // opts: { onSubmit(svg, center), onCancel(), theme }

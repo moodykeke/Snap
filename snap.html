@@ -79,5 +79,17 @@
     </head>
     <body style="margin: 0;">
         <canvas id="world" tabindex="1" style="position: absolute;"></canvas>
-    </body>
+</body>
+<script>
+// 动态加载 paint-adapter（惰性钩子，未加载不影响UI）
+(function(){
+  try {
+    var s = document.createElement('script');
+    s.src = 'src/paint-adapter.js';
+    s.defer = true;
+    s.onload = function(){ console.log('[snap] paint-adapter loaded'); };
+    (document.head || document.body).appendChild(s);
+  } catch (e) { /* no-op */ }
+})();
+</script>
 </html>
