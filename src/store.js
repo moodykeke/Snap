@@ -2110,7 +2110,7 @@ Scene.prototype.toXML = function (serializer) {
     if (this.role === 'template') {
         this.template = {
             name: this.name || localize('Untitled'),
-            version: SnapVersion,
+    version: SnapVersion,
             hide: this.stage.hiddenGlobalBlocks()
         };
     }
