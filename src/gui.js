@@ -812,6 +812,39 @@ IDE_Morph.prototype.openIn = function (world) {
         return langSetting;
     }
 
+    function autoDetectChineseLanguage() {
+        var candidate = null,
+            navLang = null,
+            langs = (navigator.languages && navigator.languages.length)
+                ? navigator.languages
+                : [navigator.language];
+
+        if (langs && langs.length) {
+            navLang = (langs[0] || '').toLowerCase();
+        }
+
+        if (!navLang) { return null; }
+
+        // normalize separators and variants
+        // examples: zh, zh-cn, zh-CN, zh_hans, zh-hant, zh-tw, zh-hk, zh-mo
+        var norm = navLang.replace('-', '_');
+
+        if (norm.indexOf('zh') === 0) {
+            if (
+                norm.indexOf('tw') > 0 ||
+                norm.indexOf('hk') > 0 ||
+                norm.indexOf('mo') > 0 ||
+                norm.indexOf('hant') > 0
+            ) {
+                candidate = 'zh_TW';
+            } else {
+                candidate = 'zh_CN';
+            }
+        }
+
+        return candidate;
+    }
+
     if (launcherLangSetting()) {
         // launch with this non-persisten lang setting
         this.loadNewProject = true;
@@ -820,7 +853,15 @@ IDE_Morph.prototype.openIn = function (world) {
         this.loadNewProject = true;
         this.setLanguage(this.userLanguage, interpretUrlAnchors);
     } else {
-        interpretUrlAnchors.call(this);
+        // auto-detect Chinese locales by default if no prior user setting
+        var detected = autoDetectChineseLanguage();
+        if (detected) {
+            this.loadNewProject = true;
+            // do not save this auto-detected language, keep user override intact
+            this.setLanguage(detected, interpretUrlAnchors, true);
+        } else {
+            interpretUrlAnchors.call(this);
+        }
     }
 
     if (location.protocol === 'file:') {
