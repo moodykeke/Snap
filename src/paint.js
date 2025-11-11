@@ -457,7 +457,7 @@ PaintEditorMorph.prototype.populatePropertiesMenu = function () {
         "checkbox",
         this,
         function () {myself.shift = !myself.shift; },
-        "Constrain proportions of shapes?\n(you can also hold shift)",
+        localize("Constrain proportions of shapes?\n(you can also hold shift)"),
         function () {return myself.shift; }
     );
     pc.constrain.label.isBold = false;

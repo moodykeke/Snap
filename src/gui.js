@@ -299,6 +299,8 @@ IDE_Morph.prototype.init = function (config) {
     this.serializer = new SnapSerializer();
     this.config = config;
     this.version = Date.now(); // for outside observers
+    // ensure dev-warning shows once after i18n is ready
+    this.devWarned = false;
 
     // restore saved user preferences
     this.userLanguage = null; // user language preference for startup
@@ -841,7 +843,7 @@ IDE_Morph.prototype.openIn = function (world) {
     // configure optional settings
     this.applyConfigurations();
 
-    this.warnAboutDev();
+    // postpone dev warning until language is reflected
     return this;
 };
 
@@ -7960,6 +7962,10 @@ IDE_Morph.prototype.reflectLanguage = function (lang, callback, noSave) {
     if (!noSave) {
         this.saveSetting('language', lang);
     }
+    // after language is applied, show dev warning once (if applicable)
+    if (!this.devWarned) {
+        this.warnAboutDev();
+    }
 };
 
 // IDE_Morph design settings
@@ -9103,19 +9109,21 @@ IDE_Morph.prototype.isIE = function () {
 // IDE_Morph warn about saving project in the dev version
 
 IDE_Morph.prototype.warnAboutDev = function () {
+    if (this.devWarned) { return; }
     if (!SnapVersion.includes('-dev') || this.config.noDevWarning) {
         return;
     }
     this.inform(
-        "CAUTION! Development Version",
-        'This version of Snap! is being developed.\n' +
-            '*** It is NOT supported for end users. ***\n' +
-            'Saving a project in THIS version is likely to\n' +
-            'make it UNUSABLE or DEFECTIVE for current and\n' +
-            'even future official versions!\n\n' +
-            'visit https://snap.berkeley.edu/run\n' +
-            'for the official Snap! installation.'
+        localize("CAUTION! Development Version"),
+        localize('This version of Snap! is being developed.') + '\n' +
+            localize('*** It is NOT supported for end users. ***') + '\n' +
+            localize('Saving a project in THIS version is likely to') + '\n' +
+            localize('make it UNUSABLE or DEFECTIVE for current and') + '\n' +
+            localize('even future official versions!') + '\n\n' +
+            localize('visit https://snap.berkeley.edu/run') + '\n' +
+            localize('for the official Snap! installation.')
     ).nag = true;
+    this.devWarned = true;
 };
 
 // IDE_Morph tutorial scene

@@ -13735,13 +13735,14 @@ SVG_Costume.prototype.parseShapes = function () {
 };
 
 SVG_Costume.prototype.edit = function (
-	aWorld,
+    aWorld,
     anIDE,
     isnew,
     oncancel,
     onsubmit
 ) {
-    var editor = new VectorPaintEditorMorph(),
+    // restore original bitmap paint editor
+    var editor = new PaintEditorMorph(),
         myself = this;
 
     editor.oncancel = oncancel || nop;
@@ -13749,10 +13750,11 @@ SVG_Costume.prototype.edit = function (
         aWorld,
         isnew ? newCanvas(anIDE.stage.dimensions) : this.contents,
         isnew ? new Point(240, 180) : this.rotationCenter,
-        (img, rc, shapes) => {
+        (img, rc) => {
             myself.contents = img;
             myself.rotationCenter = rc;
-            myself.shapes = shapes;
+            // drop vector shapes when using bitmap editor
+            myself.shapes = [];
             myself.version = Date.now();
             aWorld.changed();
             if (anIDE) {
@@ -13762,8 +13764,7 @@ SVG_Costume.prototype.edit = function (
             }
             (onsubmit || nop)();
         },
-        anIDE,
-        this.shapes || []
+        anIDE
     );
 };
 

@@ -284,7 +284,27 @@ SnapTranslator.dict.zh_CN = {
     'translator_e-mail':
         'ubertao@qq.com/djh@rhjxx.cn/simon@snapontop.org',
     'last_changed':
-        '2024-12-09'
+        '2025-11-11',
+    // dev warning strings
+    'CAUTION! Development Version':
+        '注意！开发版本',
+    'This version of Snap! is being developed.':
+        '当前 Snap! 版本仍在开发中。',
+    '*** It is NOT supported for end users. ***':
+        '*** 该版本不面向终端用户，不提供正式支持。***',
+    'Saving a project in THIS version is likely to':
+        '在此版本中保存项目很可能会',
+    'make it UNUSABLE or DEFECTIVE for current and':
+        '使其在当前或未来的正式版本中不可用或出现问题，',
+    'even future official versions!':
+        '甚至可能影响未来的正式版本！',
+    'visit https://snap.berkeley.edu/run':
+        '访问 https://snap.berkeley.edu/run',
+    'for the official Snap! installation.':
+        '获取 Snap! 官方安装版本。',
+    // paint editor
+    'Constrain proportions of shapes?\n(you can also hold shift)':
+        '约束图形的比例？\n（也可以按住 Shift）'
 };
 
 SnapTranslator.dict.eo = {
