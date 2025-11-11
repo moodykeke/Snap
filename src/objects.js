@@ -13741,18 +13741,32 @@ SVG_Costume.prototype.edit = function (
     oncancel,
     onsubmit
 ) {
-    var editor = new VectorPaintEditorMorph(),
-        myself = this;
+    // Minimal fallback to bitmap paint editor to avoid vector editor usage
+    var editor = new PaintEditorMorph(),
+        myself = this,
+        baseImage,
+        baseRC;
 
     editor.oncancel = oncancel || nop;
+
+    if (isnew) {
+        baseImage = newCanvas(anIDE.stage.dimensions, true);
+        baseRC = null; // let PaintEditorMorph center automatically
+    } else {
+        // rasterize current SVG contents for bitmap editing
+        baseImage = this.rasterized().contents;
+        baseRC = this.rotationCenter;
+    }
+
     editor.openIn(
         aWorld,
-        isnew ? newCanvas(anIDE.stage.dimensions) : this.contents,
-        isnew ? new Point(240, 180) : this.rotationCenter,
-        (img, rc, shapes) => {
+        baseImage,
+        baseRC,
+        (img, rc) => {
             myself.contents = img;
             myself.rotationCenter = rc;
-            myself.shapes = shapes;
+            // clear vector shapes to reflect bitmap editing
+            myself.shapes = [];
             myself.version = Date.now();
             aWorld.changed();
             if (anIDE) {
@@ -13762,8 +13776,7 @@ SVG_Costume.prototype.edit = function (
             }
             (onsubmit || nop)();
         },
-        anIDE,
-        this.shapes || []
+        anIDE
     );
 };
 
